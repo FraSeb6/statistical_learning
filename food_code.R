@@ -10,6 +10,8 @@ Food_Production <- Food_Production %>%
          animal_feed = 'Animal.Feed',
   )
 
+pca_res <- prcomp(Food_Production[, 2:8], scale. = TRUE)
+
 
 # Visualize variables only
 fviz_pca_var(
