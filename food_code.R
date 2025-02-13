@@ -11,16 +11,6 @@ Food_Production <- Food_Production %>%
   )
 
 
-pca_res <- prcomp(Food_Production[, 2:6], scale. = TRUE)
-fviz_pca_ind(
-  pca_res,
-  geom.ind = "point",
-  col.ind = Food_Production$food_product, # color by species
-  addEllipses = TRUE,# color by species
-  # confidence ellipses for each group
-  legend.title = "Product"
-)
-
 # Visualize variables only
 fviz_pca_var(
   pca_res,
