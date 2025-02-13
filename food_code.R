@@ -32,7 +32,7 @@ res.hcpc <- HCPC(res.pca, graph = FALSE)
 # Number of clusters chosen
 res.hcpc$call$t$nb.clust
 
-# Numberof clusters chosen
+# Visualize dendogram
 plot(res.hcpc, choice = "tree")
 
 # Visualize clusters in factor map
