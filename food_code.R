@@ -28,3 +28,6 @@ fviz_pca_var(
   gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
   repel = TRUE
 )
+
+summary(pca_res)
+fviz_pca_ind(pca_res)
