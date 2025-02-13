@@ -11,7 +11,7 @@ Food_Production <- Food_Production %>%
   )
 
 
-pca_res <- prcomp(Food_Production[, 2:6], scale. = TRUE)
+pca_res <- prcomp(Food_Production[, 2:8], scale. = TRUE)
 fviz_pca_ind(
   pca_res,
   geom.ind = "point",
