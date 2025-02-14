@@ -14,6 +14,8 @@ Food_Production <- Food_Production %>%
 
 pca_res <- prcomp(Food_Production[, 2:8], scale. = TRUE)
 
+scaled_data <- Food_Production
+scaled_data[, -1] <- scale(Food_Production[, -1])
 
 # Visualize variables only
 fviz_pca_var(
@@ -27,7 +29,9 @@ summary(pca_res)
 fviz_pca_ind(pca_res)
 
 # hierarchical clustering
-res.hcpc <- HCPC(res.pca, graph = FALSE)
+Food_Production <- Food_Production[sapply(Food_Production, is.numeric)]
+pca_res <- PCA(Food_Production[, 2:8], graph = FALSE) #NA changed with the mean
+res.hcpc <- HCPC(pca_res, graph = FALSE)
 
 # Number of clusters chosen
 res.hcpc$call$t$nb.clust
@@ -37,3 +41,6 @@ plot(res.hcpc, choice = "tree")
 
 # Visualize clusters in factor map
 plot(res.hcpc, choice = "map")
+
+centroids <- res.hcpc$desc.var$quanti
+print(centroids)
