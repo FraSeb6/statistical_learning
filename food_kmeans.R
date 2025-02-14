@@ -51,3 +51,43 @@ is probably due to the presence of the outlier 34.
 We can try to apply the k-median method, or re-try the k-means after dropping the outlier."
 
 
+# Check that 34 is actually an outlier
+
+# Create and save the boxplot
+boxplot_info <- boxplot(scaled_data, 
+                        main = "Boxplot con Outlier Etichettati", 
+                        col = "lightblue", 
+                        pch = 20)  # pch=20 per rendere i punti più visibili
+
+# I want the labels for outliers:
+for (i in 1:ncol(scaled_data)) {
+  variable_values <- scaled_data[, i] 
+  outliers <- boxplot_info$out[boxplot_info$group == i]  # Select only outliers for each variable
+  outlier_indices <- which(variable_values %in% outliers)  # Obtain indexes
+  
+  # Add labels to the outliers
+  if (length(outliers) > 0) {
+    text(rep(i, length(outliers)), outliers, 
+         labels = outlier_indices, pos = 3, col = "red", cex = 0.8)
+  }
+}
+
+" From the boxplot I can see that 34 is always present as outlier in every variable, 
+except for the last one which does not present outliers."
+
+# Drop the outlier
+scaled_data <- scaled_data[-34, ]  
+
+# Try again the k-means algorithm 
+set.seed(123)
+k.means.fit.woutlier <- kmeans(scaled_data, 3)
+str(k.means.fit.woutlier)
+scaled_data$cluster <- k.means.fit.woutlier$cluster
+table(k.means.fit.woutlier$cluster, scaled_data$cluster)
+
+clusplot(scaled_data, k.means.fit.woutlier$cluster, 
+         main='2D representation of the Cluster solution',
+         color=TRUE, shade=TRUE,
+         labels=2, lines=0)
+
+"The clusters look different from before, but now it appears that they fit the data better."
