@@ -12,10 +12,16 @@ Food_Production <- Food_Production %>%
          animal_feed = 'Animal.Feed',
   )
 
-pca_res <- prcomp(Food_Production[, 2:8], scale. = TRUE)
 
 scaled_data <- Food_Production
+<<<<<<< Updated upstream:food_HCPC.R
 scaled_data[, -1] <- scale(Food_Production[, -1])
+=======
+scaled_data[,-1] <- scale(Food_Production[, -1])
+
+
+pca_res <- prcomp(scaled_data[, 2:8], scale. = TRUE)
+>>>>>>> Stashed changes:food_code.R
 
 # Visualize variables only
 fviz_pca_var(
@@ -29,9 +35,13 @@ summary(pca_res)
 fviz_pca_ind(pca_res)
 
 # hierarchical clustering
+<<<<<<< Updated upstream:food_HCPC.R
 Food_Production <- Food_Production[sapply(Food_Production, is.numeric)]
 pca_res <- PCA(Food_Production[, 2:8], graph = FALSE) #NA changed with the mean
 res.hcpc <- HCPC(pca_res, graph = FALSE)
+=======
+res.hcpc <- HCPC(scaled_data, graph = FALSE)
+>>>>>>> Stashed changes:food_code.R
 
 # Number of clusters chosen
 res.hcpc$call$t$nb.clust
@@ -42,5 +52,12 @@ plot(res.hcpc, choice = "tree")
 # Visualize clusters in factor map
 plot(res.hcpc, choice = "map")
 
+<<<<<<< Updated upstream:food_HCPC.R
 centroids <- res.hcpc$desc.var$quanti
 print(centroids)
+=======
+# Centri dei cluster (medie delle variabili per ciascun cluster)
+centroids <- res.hcpc$desc.var$quanti
+print(centroids)
+
+>>>>>>> Stashed changes:food_code.R
