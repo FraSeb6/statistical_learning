@@ -1,8 +1,3 @@
-# Installare i pacchetti (se non già installati)
-install.packages("caret")
-install.packages("dplyr")
-
-# Caricare le librerie
 library(caret)
 library(dplyr)
 library(tidyverse)
@@ -27,7 +22,4 @@ df_encoded <- predict(dummy_model, newdata=df)
 
 # Convertire in dataframe
 df_encoded <- as.data.frame(df_encoded)
-
-# Visualizzare le prime righe
-head(df_encoded)
 
