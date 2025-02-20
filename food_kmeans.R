@@ -38,6 +38,10 @@ str(k.means.fit)
 scaled_data$cluster <- k.means.fit$cluster
 table(k.means.fit$cluster, scaled_data$cluster)
 
+# Compare clusters
+aggregate(scaled_data,by=list(k.means.fit$cluster),FUN=mean)
+
+
 "From the table of the k-means fit it, we find out that the second cluster has only three observations.
 It is probably more convenient to try with three clusters."
 
