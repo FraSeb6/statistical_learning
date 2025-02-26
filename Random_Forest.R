@@ -37,13 +37,13 @@ trainIndex <- createDataPartition(df_encoded$y, p = 0.8, list = FALSE)
 train <- df_encoded[trainIndex, ]
 test <- df_encoded[-trainIndex, ]
 
-# Imposta il seme per la riproducibilità
+# Set seed for riproducibility 
 set.seed(42)
 
-# Definisci i parametri per il training
+# Define the parameter for the traning
 train_control <- trainControl(method = "cv", number = 10, search = "grid")
 
-# Allenamento del modello Random Forest
+# Random Forest Model Training
 rf_model_caret <- train(y ~ ., 
                         data = train, 
                         method = "rf", 
@@ -71,7 +71,8 @@ probabilities_caret <- predict(rf_model_caret, newdata = test, type = "prob")[, 
 
 # Crea la curva ROC
 roc_curve_caret <- roc(test$y, probabilities_caret)
-plot(roc_curve_caret, main = "ROC Curve", col = "blue")
+auc_value <- auc(roc_curve_caret)
+plot(roc_curve_caret, main = paste("ROC - AUC curve:", round(auc_value,2)), col = "blue")
 
 # Visualizza l'importanza delle variabili
 rf_model_caret$finalModel$importance
