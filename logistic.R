@@ -54,9 +54,25 @@ summary(logistic_model)
 test$predicted_prob <- predict(logistic_model, newdata = test, type = "prob")[, "Subscribed"]
 test$predicted_class <- ifelse(test$predicted_prob > 0.5, "Subscribed", "Not_subscribed")
 
-# Use caret's confusionMatrix function
+# Confusion Matrix
 conf_matrix <- confusionMatrix(factor(test$predicted_class, levels = c("Not_subscribed", "Subscribed")), test$y)
 print(conf_matrix)
+
+# to create the graph:
+conf_matrix_table <- as.data.frame(conf_matrix$table)
+colnames(conf_matrix_table) <- c("Predicted", "Actual", "Frequency")
+
+ggplot(conf_matrix_table, aes(x = Actual, y = Predicted, fill = Frequency)) +
+  geom_tile() +
+  scale_fill_gradient(low = "white", high = "red") +
+  geom_text(aes(label = Frequency), color = "black", size = 5) +
+  theme_minimal() +
+  labs(
+    title = "Confusion Matrix",
+    x = "Actual Class",
+    y = "Predicted Class"
+  ) +
+  theme(plot.title = element_text(hjust = 0.5))
 
 # Extract and print key metrics
 cat("Sensitivity:", conf_matrix$byClass["Sensitivity"], "\n")
