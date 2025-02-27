@@ -38,6 +38,7 @@ Food_Production[-1] <- lapply(Food_Production[-1], function(x) {
   return(x)
 })
 
+---------------------------------------------------------------------------------
 
 ## DESCRIPTIVE STATISTICS
 summary(Food_Production)
@@ -131,6 +132,8 @@ variances <- apply(scaled_foodproduction, 2, var)
 selected_vars <- names(variances[variances > 0.3])
 " All 19 variables have enough variance to be considered"
 
+--------------------------------------------------------------------------------
+
 ## K-MEANS
 # Find optimal number of clusters
 wssplot <- function(data, nc=15, seed=123){
@@ -208,4 +211,28 @@ for (i in 1:ncol(scaled_foodproduction)) {
   }
 }
 
-" It is evident that those products represents in some ways outliers."
+" It is evident that those products (coffee, dark chocolate, beef herd and lamb)
+represent in some ways outliers."
+
+--------------------------------------------------------------------------------
+  
+## K-MEDIAN
+"We decided to cluster the data using the k-median algorithm to try to reduce the 
+influence of the outliers 32, 33, 34 and 36 on the model."
+
+set.seed(123)
+k.median.fit <- pam(scaled_foodproduction, 4, metric = "manhattan")  
+scaled_foodproduction$cluster <- factor(k.median.fit$clustering)  # Converti cluster in fattore
+
+# Seleziona le prime tre colonne per il grafico 3D
+cols <- colnames(scaled_foodproduction)[1:3]
+
+# Grafico interattivo
+plot_ly(data = scaled_foodproduction, 
+        x = ~get(cols[1]), y = ~get(cols[2]), z = ~get(cols[3]), 
+        color = ~cluster, colors = c("red", "blue", "green", "purple"),
+        type = "scatter3d", mode = "markers") %>%
+  layout(title = "3D K-Median Clustering")
+
+"Regardless the number of clusters that we choose, the k-median is not an efficient
+method to cluster our data, because the final clusters are very close to each other."
