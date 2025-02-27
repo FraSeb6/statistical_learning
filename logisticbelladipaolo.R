@@ -8,6 +8,16 @@ df <- read.csv("bankmarketing/bank.csv", sep = ';')
 
 # Data cleaning and standardization -----------------------------------------------------------
 
+df[df == "unknown"] <- NA
+
+columns_na <- colSums(is.na(df))
+print(columns_na)
+
+# we are gonna drop the columns with too many unknowns (converted in NA) 
+# and the rows having NA values in job and education (the only two having those)
+
+sum(is.na(df$job) | is.na(df$education)) 
+
 # Convert yes/no to valid factor levels
 df <- df %>%
   mutate(
@@ -17,62 +27,55 @@ df <- df %>%
     y = ifelse(y == "yes", "Subscribed", "Not_subscribed"),  # Use valid names for y
     contacted_before = ifelse(pdays > -1, 1, 0)
   ) %>%
-  select(-pdays, -poutcome)
+  select(-pdays, -poutcome, -contact)
+
+#eliminate rows with NA values
+df_clean <- df[complete.cases(df), ]
 
 # Group job categories
-df <- df %>%
+df_clean <- df_clean %>%
   mutate(
     job_group = case_when(
       job %in% c("blue-collar", "technician", "services", "housemaid") ~ "Manual_Work",
       job %in% c("admin.", "management", "entrepreneur", "self-employed") ~ "White_Collar",
-      job %in% c("retired", "student", "unemployed") ~ "Non_Working",
-      TRUE ~ "Other"
+      job %in% c("retired", "student", "unemployed") ~ "Non_Working"
     )
   ) %>%
   select(-job)
 
-# Group education levels
-df <- df %>%
-  mutate(
-    education_group = case_when(
-      education %in% c("primary") ~ "Low_Education",
-      education %in% c("secondary") ~ "Medium_Education",
-      education %in% c("tertiary") ~ "High_Education",
-      TRUE ~ "Unknown"
-    )
-  ) %>%
-  select(-education)
-
 # Group marital status
-df <- df %>%
+df_clean <- df_clean %>%
   mutate(
     marital_group = case_when(
       marital %in% c("married") ~ "Married",
-      marital %in% c("single") ~ "Single",
-      marital %in% c("divorced") ~ "Divorced",
-      TRUE ~ "Other"
+      marital %in% c("single", "divorced") ~ "Single"
     )
   ) %>%
   select(-marital)
 
 # Group months into quadrimesters
-df <- df %>%
+df_clean <- df_clean %>%
   mutate(
     quadrimester = case_when(
       month %in% c("jan", "feb", "mar", "apr") ~ "Q1",
       month %in% c("may", "jun", "jul", "aug") ~ "Q2",
-      month %in% c("sep", "oct", "nov", "dec") ~ "Q3",
-      TRUE ~ "Unknown"
+      month %in% c("sep", "oct", "nov", "dec") ~ "Q3"
     )
   ) %>%
   select(-month)
 
+#reordering for clarity
+df_clean <- df_clean %>%
+  select(-y, everything(), y)
+
+
 # One-hot encoding for categorical variables (excluding y)
-dummies <- dummyVars("~ . - y", data = df, fullRank = TRUE)
-df_encoded <- predict(dummies, df) %>% as.data.frame()
+dummies <- dummyVars("~ . - y", data = df_clean, fullRank = TRUE)
+df_encoded <- predict(dummies, df_clean) %>% as.data.frame()
+
 
 # Add y back as a factor with valid names
-df_encoded$y <- factor(df$y, levels = c("Not_subscribed", "Subscribed"))
+df_encoded$y <- factor(df_clean$y, levels = c("Not_subscribed", "Subscribed"))
 
 # Normalize numerical variables
 numeric_cols <- c("age", "balance", "duration", "campaign", "previous")
@@ -84,7 +87,6 @@ trainIndex <- createDataPartition(df_encoded$y, p = 0.8, list = FALSE)
 train <- df_encoded[trainIndex, ]
 test <- df_encoded[-trainIndex, ]
 
-str(df_encoded)
 # Logistic regression model -----------------------------------------------------
 
 # Set up 10-fold cross-validation
@@ -144,3 +146,7 @@ ggplot() +
   geom_abline(linetype = "dashed") +
   labs(title = paste("ROC Curve - AUC:", round(auc_value, 2)), x = "1 - Specificity", y = "Sensitivity") +
   theme_minimal()
+
+# Finding the optimal threshold to predict y using the Youden's index
+opt_threshold <- coords(roc_curve, "best", ret = "threshold")
+print(paste("Optimal Threshold based on Youden's index:", opt_threshold))
