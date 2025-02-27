@@ -1,24 +1,140 @@
-library(factoextra)
 library(dplyr)
+library(factoextra)
 library(FactoMineR)
 library(factoextra)
 library(rattle)
 library(cluster)
+library(caret)
+library(plotly)
+
 
 Food_Production <- read.csv("Food_Production.csv")
-Food_Production <- as.data.frame(Food_Production)
 
 Food_Production <- Food_Production %>%
   rename(food_product = 'Food.product',
          land_use_change = 'Land.use.change',
          animal_feed = 'Animal.Feed',
+         Eutrophication_kcal = 'Eutrophying.emissions.per.1000kcal..gPO.eq.per.1000kcal.',
+         Eutrophication_protein = 'Eutrophying.emissions.per.100g.protein..gPO.eq.per.100.grams.protein.',
+         Eutrophication_kilogram = 'Eutrophying.emissions.per.kilogram..gPO.eq.per.kilogram.',
+         Liters_kcal = 'Freshwater.withdrawals.per.1000kcal..liters.per.1000kcal.',
+         Liters_protein = 'Freshwater.withdrawals.per.100g.protein..liters.per.100g.protein.',
+         Liters_kilogram = 'Freshwater.withdrawals.per.kilogram..liters.per.kilogram.',
+         Gas_emissions_kcal = 'Greenhouse.gas.emissions.per.1000kcal..kgCO.eq.per.1000kcal.',
+         Gas_emissions_protein = 'Greenhouse.gas.emissions.per.100g.protein..kgCO.eq.per.100g.protein.',
+         Land_use_kcal = 'Land.use.per.1000kcal..m..per.1000kcal.',
+         Land_use_kilogram = 'Land.use.per.kilogram..m..per.kilogram.',
+         Land_use_protein = 'Land.use.per.100g.protein..m..per.100g.protein.',
+         Scarcity_liters_kilogram = 'Scarcity.weighted.water.use.per.kilogram..liters.per.kilogram.',
+         Scarcity_liters_protein = 'Scarcity.weighted.water.use.per.100g.protein..liters.per.100g.protein.',
+         Scarcity_liters_kcal = 'Scarcity.weighted.water.use.per.1000kcal..liters.per.1000.kilocalories.'
+         
   )
 
-# Scale data
-scaled_data <- Food_Production
-scaled_data[, -1] <- scale(Food_Production[, -1])
-scaled_data <- scaled_data[, 2:8]
+Food_Production[-1] <- lapply(Food_Production[-1], function(x) {
+  if (is.numeric(x)) {
+    x[is.na(x)] <- mean(x, na.rm = TRUE)
+  }
+  return(x)
+})
 
+
+## DESCRIPTIVE STATISTICS
+summary(Food_Production)
+"We can see that our dataset is very dishomogeneous on the ranges of the variables.
+We decide to visualize the variables one by one with histograms and boxplots, to 
+verify which columns we should convert into logaritms."
+
+# Histograms, Boxplot: check variables' distributions
+par(mfrow=c(5,5), mar=c(2, 2, 2, 2))
+for(i in 2:23) {
+  hist(Food_Production[, i], main=names(Food_Production)[i], col="lightblue")
+}
+dev.off()
+
+boxplot(Food_Production[, -1], main="Distribuzione delle Variabili", las=2, col="lightblue")
+
+# Density plot: help visualization
+plot(density(Food_Production[,2], na.rm=TRUE), col=rainbow(23)[1], lwd=2, main="Densità delle Variabili")
+for (i in 3:ncol(Food_Production)) {
+  lines(density(Food_Production[,i], na.rm=TRUE), col=rainbow(23)[i], lwd=2)
+}
+legend("topright", legend=names(Food_Production)[2:23], col=rainbow(23), lwd=2, cex=0.6)
+
+# Focus on the last 13 variables
+plot(density(Food_Production[,10], na.rm=TRUE), col=rainbow(23)[1], lwd=2, main="Densità delle Variabili")
+for (i in 3:ncol(Food_Production)) {
+  lines(density(Food_Production[,i], na.rm=TRUE), col=rainbow(23)[i], lwd=2)
+}
+legend("topright", legend=names(Food_Production)[10:23], col=rainbow(23), lwd=2, cex=0.6)
+
+"The distribution of some variables is very skewed to the right: converting them
+to logarithms could change this asymmetry. We cannot keep the dataset like this if 
+we want to compare variables.
+We decide to convert variables 13:15 and 21:23 (those that reach 1,000 as maximum
+value) of our dataset into their logarithmic form to adjust the skeweness."
+
+Foodproduction_log <- Food_Production
+Foodproduction_log[, 21:23] <- log1p(Food_Production[, 21:23])
+Foodproduction_log[, 13:15] <- log1p(Food_Production[, 13:15])
+
+plot(density(Foodproduction_log[,2], na.rm=TRUE), col=rainbow(23)[1], lwd=2, main="Densità delle Variabili")
+for (i in 3:ncol(Foodproduction_log)) {
+  lines(density(Foodproduction_log[,i], na.rm=TRUE), col=rainbow(23)[i], lwd=2)
+}
+legend("topright", legend=names(Food_Production)[2:23], col=rainbow(23), lwd=2, cex=0.6)
+
+"We see from the density plot that we have many different peaks: this could be
+a good sign for the clustering process that we are going to explore, since it is
+likely that our data is naturally split in different groups."
+
+# Check skewness: repeat visualization
+par(mfrow=c(5,5), mar=c(2, 2, 2, 2))
+for(i in 2:23) {
+  hist(Foodproduction_log[, i], main=names(Foodproduction_log)[i], col="lightblue")
+}
+dev.off()
+
+boxplot(Foodproduction_log[, -1], main="Distribuzione delle Variabili", las=2, col="lightblue")
+
+"Some variables still have very wide ranges compared to others (to the first 8 for
+example, so we scale them."
+
+# Scale data
+scaled_foodproduction <- Foodproduction_log
+scaled_foodproduction[, -1] <- scale(Foodproduction_log[, -1])
+scaled_foodproduction <- scaled_foodproduction[, 2:23]
+
+# Check the scaling 
+plot(density(scaled_foodproduction[,2], na.rm=TRUE), col=rainbow(23)[1], lwd=2, main="Densità delle Variabili")
+for (i in 3:ncol(scaled_foodproduction)) {
+  lines(density(scaled_foodproduction[,i], na.rm=TRUE), col=rainbow(23)[i], lwd=2)
+}
+legend("topright", legend=names(Food_Production)[2:23], col=rainbow(23), lwd=2, cex=0.6)
+
+
+" #### Still very skewed; try with converting in log+1 the variables that are closer to 0"
+
+
+# Verify correlation between variables
+corr_matrix <- cor(scaled_foodproduction)
+heatmap(corr_matrix, main="Correlation map")
+
+"It is clear from the heatmap that scarcity-weighted water use is strongly correlated 
+to the fresh water withdrawals (corr > 0.9) We can remove one of the two groups.
+We decide to remove the scarcity-weighted variables."
+
+scaled_foodproduction <- scaled_foodproduction[, -c(20:22)]
+
+corr_matrix <- cor(scaled_foodproduction)
+heatmap(corr_matrix, main="Correlation map")
+
+# Additional check to control for variables with a variance threshold
+variances <- apply(scaled_foodproduction, 2, var)
+selected_vars <- names(variances[variances > 0.3])
+" All 19 variables have enough variance"
+
+## K-MEANS
 # Find optimal number of clusters
 wssplot <- function(data, nc=15, seed=123){
   wss <- (nrow(data)-1)*sum(apply(data,2,var))
@@ -28,51 +144,63 @@ wssplot <- function(data, nc=15, seed=123){
   plot(1:nc, wss, type="b", xlab="Number of Clusters",
        ylab="Within groups sum of squares")}
 
-wssplot(scaled_data, nc=10)
+wssplot(scaled_foodproduction, nc=10)
 
-"It looks from the plot that 4 is the optimal number of cluster"
+"It looks from the plot that 4 looks like the optimal number of cluster"
 
 set.seed(123)
-k.means.fit <- kmeans(scaled_data, 4)
+k.means.fit <- kmeans(scaled_foodproduction, 2)
 str(k.means.fit)
-scaled_data$cluster <- k.means.fit$cluster
-table(k.means.fit$cluster, scaled_data$cluster)
-
-# Compare clusters
-aggregate(scaled_data,by=list(k.means.fit$cluster),FUN=mean)
+scaled_foodproduction$cluster <- k.means.fit$cluster
+table(k.means.fit$cluster, scaled_foodproduction$cluster)
 
 
-"From the table of the k-means fit it, we find out that the second cluster has only three observations.
-It is probably more convenient to try with three clusters."
-
-clusplot(scaled_data, k.means.fit$cluster, 
+clusplot(scaled_foodproduction, k.means.fit$cluster, 
          main='2D representation of the Cluster solution',
          color=TRUE, shade=TRUE,
          labels=2, lines=0)
 
-"We can see from the plot that the second cluster that is introduced when the number is set to 4,
-is probably due to the presence of the outlier 34.
+" 33 and 32 are in the same cluster, but very far from the others. Same for 36 and 34.
+Even when trying to add more clusters, they do not separate, so they must be really close."
+
+" We should check why they are so far away.
+We can also see from the plot that that cluster contains the number 34, which is probably an outlier.
 We can try to apply the k-median method, or re-try the k-means after dropping the outlier."
 
+" We can also try to look at the 3D plot"
+pca_result <- prcomp(scaled_foodproduction, center = TRUE, scale. = TRUE)
+pca_data <- as.data.frame(pca_result$x[, 1:3])  
+set.seed(123)  # Per riproducibilità
+kmeans_result <- kmeans(pca_data, centers = 5, nstart = 25)  # Cambia 'centers' se necessario
 
-# Check that 34 is actually an outlier
+# Aggiungi i cluster ai dati PCA
+pca_data$Cluster <- as.factor(kmeans_result$cluster)
+pca_data$RowIndex <- rownames(scaled_foodproduction)  
 
-# Create and save the boxplot
-boxplot_info <- boxplot(scaled_data, 
-                        main = "Boxplot con Outlier Etichettati", 
-                        col = "lightblue", 
-                        pch = 20)  # pch=20 per rendere i punti più visibili
+# Plotta con hover text che mostra l'indice della riga
+plot_ly(pca_data, 
+        x = ~PC1, 
+        y = ~PC2, 
+        z = ~PC3, 
+        color = ~Cluster, 
+        text = ~paste("Row:", RowIndex),  # Mostra l'indice della riga
+        colors = c("red", "blue", "green"),
+        type = "scatter3d", 
+        mode = "markers") %>%
+  layout(title = "Cluster in PCA Space")
 
-# I want the labels for outliers:
-for (i in 1:ncol(scaled_data)) {
-  variable_values <- scaled_data[, i] 
-  outliers <- boxplot_info$out[boxplot_info$group == i]  # Select only outliers for each variable
-  outlier_indices <- which(variable_values %in% outliers)  # Obtain indexes
+
+# Verify that rows 32-33-34-36 are actually an outlier
+boxplot_info <- boxplot(scaled_foodproduction, main = "Boxplot: highlight outliers", col = "lightblue")  
+
+for (i in 1:ncol(scaled_foodproduction)) {
+  variable_values <- scaled_foodproduction[, i] 
+  outliers <- boxplot_info$out[boxplot_info$group == i]  
+  outlier_indices <- which(variable_values %in% outliers)  
   
-  # Add labels to the outliers
-  if (length(outliers) > 0) {
-    text(rep(i, length(outliers)), outliers, 
-         labels = outlier_indices, pos = 3, col = "red", cex = 0.8)
+  # Controlla se la riga 34 è tra gli outlier
+  if (34 %in% outlier_indices) {
+    text(i, variable_values[34], labels = "34", pos = 3, col = "blue", cex = 0.8, font = 2)
   }
 }
 
@@ -80,18 +208,57 @@ for (i in 1:ncol(scaled_data)) {
 except for the last one which does not present outliers."
 
 # Drop the outlier
-scaled_data <- scaled_data[-34, ]  
+scaled_foodproduction <- scaled_foodproduction[-34, ] 
+
+wssplot <- function(data, nc=15, seed=123){
+  wss <- (nrow(data)-1)*sum(apply(data,2,var))
+  for (i in 2:nc){
+    set.seed(123)
+    wss[i] <- sum(kmeans(data, centers=i)$withinss)}
+  plot(1:nc, wss, type="b", xlab="Number of Clusters",
+       ylab="Within groups sum of squares")}
+
+wssplot(scaled_foodproduction, nc=10)
 
 # Try again the k-means algorithm 
 set.seed(123)
-k.means.fit.woutlier <- kmeans(scaled_data, 3)
+k.means.fit.woutlier <- kmeans(scaled_foodproduction, 5)
 str(k.means.fit.woutlier)
-scaled_data$cluster <- k.means.fit.woutlier$cluster
-table(k.means.fit.woutlier$cluster, scaled_data$cluster)
+scaled_foodproduction$cluster <- k.means.fit.woutlier$cluster
+table(k.means.fit.woutlier$cluster, scaled_foodproduction$cluster)
 
-clusplot(scaled_data, k.means.fit.woutlier$cluster, 
+clusplot(scaled_foodproduction, k.means.fit.woutlier$cluster, 
          main='2D representation of the Cluster solution',
          color=TRUE, shade=TRUE,
          labels=2, lines=0)
 
-"The clusters look different from before, but now it appears that they fit the data better."
+"Considering all the variables still does not help: choose which one are important"
+
+
+" Try with three principal components"
+# Applica PCA (mantieni 3 componenti principali)
+pca_result <- prcomp(scaled_foodproduction, center = TRUE, scale. = TRUE)
+pca_data <- as.data.frame(pca_result$x[, 1:3])  # Prendi solo le prime 3 componenti
+
+# Applica K-Means (scegli K in base alla tua analisi)
+set.seed(123)  # Per riproducibilità
+kmeans_result <- kmeans(pca_data, centers = 5, nstart = 25)  # Cambia 'centers' se necessario
+
+# Aggiungi i cluster ai dati PCA
+pca_data$Cluster <- as.factor(kmeans_result$cluster)
+pca_data$RowIndex <- rownames(scaled_foodproduction)  
+
+# Plotta con hover text che mostra l'indice della riga
+plot_ly(pca_data, 
+        x = ~PC1, 
+        y = ~PC2, 
+        z = ~PC3, 
+        color = ~Cluster, 
+        text = ~paste("Row:", RowIndex),  # Mostra l'indice della riga
+        colors = c("red", "blue", "green"),
+        type = "scatter3d", 
+        mode = "markers") %>%
+  layout(title = "Cluster in PCA Space")
+
+# Re-try same code without line 36 (lamb & mutton)
+scaled_foodproduction <- scaled_foodproduction[-36, ] 
