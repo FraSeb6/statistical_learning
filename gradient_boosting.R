@@ -53,17 +53,6 @@ ggplot(conf_matrix_melted, aes(x = Actual, y = Predicted, fill = value)) +
   theme_minimal()
 
 # Additional Visualizations
-# Distribution of target variable
-ggplot(data, aes(x = as.factor(y))) +
-  geom_bar(fill = "skyblue") +
-  labs(title = "Distribution of Target Variable", x = "Subscription (y)", y = "Count") +
-  theme_minimal()
-
-# Age distribution
-ggplot(data, aes(x = age)) +
-  geom_histogram(fill = "green", bins = 30, alpha = 0.7) +
-  labs(title = "Age Distribution", x = "Age", y = "Count") +
-  theme_minimal()
 
 # Balance vs. Target variable
 ggplot(data, aes(x = as.factor(y), y = balance, fill = as.factor(y))) +
@@ -73,12 +62,8 @@ ggplot(data, aes(x = as.factor(y), y = balance, fill = as.factor(y))) +
 
 # ROC Curve
 roc_curve <- roc(testData$y, pred_probs)
-ggplot() +
-  geom_line(aes(x = 1 - roc_curve$specificities, y = roc_curve$sensitivities), color = "blue") +
-  geom_abline(linetype = "dashed") +
-  labs(title = "ROC Curve", x = "1 - Specificity", y = "Sensitivity") +
-  theme_minimal()
-
+auc_value <-auc(roc_curve)
+plot(roc_curve, col = "blue", main = paste("ROC - AUC curve:", round(auc_value, 2)))
 # Print results
 print(conf_matrix)
 print(paste("Accuracy:", round(accuracy * 100, 2), "%"))
