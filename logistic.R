@@ -52,11 +52,27 @@ summary(logistic_model)
 
 #Predictions on the test set
 test$predicted_prob <- predict(logistic_model, newdata = test, type = "prob")[, "Subscribed"]
-test$predicted_class <- ifelse(test$predicted_prob > 0.2, "Subscribed", "Not_subscribed")
+test$predicted_class <- ifelse(test$predicted_prob > 0.5, "Subscribed", "Not_subscribed")
 
-# Use caret's confusionMatrix function
+# Confusion Matrix
 conf_matrix <- confusionMatrix(factor(test$predicted_class, levels = c("Not_subscribed", "Subscribed")), test$y)
 print(conf_matrix)
+
+# to create the graph:
+conf_matrix_table <- as.data.frame(conf_matrix$table)
+colnames(conf_matrix_table) <- c("Predicted", "Actual", "Frequency")
+
+ggplot(conf_matrix_table, aes(x = Actual, y = Predicted, fill = Frequency)) +
+  geom_tile() +
+  scale_fill_gradient(low = "white", high = "red") +
+  geom_text(aes(label = Frequency), color = "black", size = 5) +
+  theme_minimal() +
+  labs(
+    title = "Confusion Matrix",
+    x = "Actual Class",
+    y = "Predicted Class"
+  ) +
+  theme(plot.title = element_text(hjust = 0.5))
 
 # Extract and print key metrics
 cat("Sensitivity:", conf_matrix$byClass["Sensitivity"], "\n")
@@ -76,11 +92,3 @@ cat("MCC:", MCC, "\n")
 roc_curve <- roc(as.numeric(test$y) - 1, test$predicted_prob)
 auc_value <- auc(roc_curve)
 plot(roc_curve, col = "blue", main = paste("ROC - AUC curve:", round(auc_value, 2)))
-
-# Visualization of y distribution with respect to the last contact duration
-ggplot(test, aes(x = duration, fill = factor(y))) +
-  geom_histogram(bins = 30, alpha = 0.6, position = "identity") +
-  labs(title = "Distribution of y with respect to the last contact duration",
-       x = "Last contact duration", y = "Frequency") +
-  scale_fill_manual(values = c("red", "green"), name = "y") +
-  theme_minimal()
