@@ -113,9 +113,6 @@ for (i in 3:ncol(scaled_foodproduction)) {
 legend("topright", legend=names(Food_Production)[2:23], col=rainbow(23), lwd=2, cex=0.6)
 
 
-" #### Still very skewed; try with converting in log+1 the variables that are closer to 0"
-
-
 # Verify correlation between variables
 corr_matrix <- cor(scaled_foodproduction)
 heatmap(corr_matrix, main="Correlation map")
@@ -132,7 +129,7 @@ heatmap(corr_matrix, main="Correlation map")
 # Additional check to control for variables with a variance threshold
 variances <- apply(scaled_foodproduction, 2, var)
 selected_vars <- names(variances[variances > 0.3])
-" All 19 variables have enough variance"
+" All 19 variables have enough variance to be considered"
 
 ## K-MEANS
 # Find optimal number of clusters
@@ -146,10 +143,10 @@ wssplot <- function(data, nc=15, seed=123){
 
 wssplot(scaled_foodproduction, nc=10)
 
-"It looks from the plot that 4 looks like the optimal number of cluster"
+"It looks from the plot that 4 would be the optimal number of cluster"
 
 set.seed(123)
-k.means.fit <- kmeans(scaled_foodproduction, 2)
+k.means.fit <- kmeans(scaled_foodproduction, 4)
 str(k.means.fit)
 scaled_foodproduction$cluster <- k.means.fit$cluster
 table(k.means.fit$cluster, scaled_foodproduction$cluster)
@@ -167,7 +164,7 @@ Even when trying to add more clusters, they do not separate, so they must be rea
 We can also see from the plot that that cluster contains the number 34, which is probably an outlier.
 We can try to apply the k-median method, or re-try the k-means after dropping the outlier."
 
-" We can also try to look at the 3D plot"
+" We can also try to look at the 3D plot: use the first three principal components"
 pca_result <- prcomp(scaled_foodproduction, center = TRUE, scale. = TRUE)
 pca_data <- as.data.frame(pca_result$x[, 1:3])  
 set.seed(123)  # Per riproducibilità
@@ -192,73 +189,23 @@ plot_ly(pca_data,
 
 # Verify that rows 32-33-34-36 are actually an outlier
 boxplot_info <- boxplot(scaled_foodproduction, main = "Boxplot: highlight outliers", col = "lightblue")  
+# Definizione degli indici e dei colori corrispondenti
+highlight_indices <- c(32, 33, 34, 36)
+highlight_colors <- c("red", "green", "blue", "purple")  # Colori per ogni indice
+names(highlight_colors) <- highlight_indices  # Associa i colori agli indici
 
 for (i in 1:ncol(scaled_foodproduction)) {
   variable_values <- scaled_foodproduction[, i] 
   outliers <- boxplot_info$out[boxplot_info$group == i]  
   outlier_indices <- which(variable_values %in% outliers)  
   
-  # Controlla se la riga 34 è tra gli outlier
-  if (34 %in% outlier_indices) {
-    text(i, variable_values[34], labels = "34", pos = 3, col = "blue", cex = 0.8, font = 2)
+  # Controlla se gli indici specificati sono tra gli outlier
+  for (idx in highlight_indices) {
+    if (idx %in% outlier_indices) {
+      text(i, variable_values[idx], labels = as.character(idx), pos = 3, 
+           col = highlight_colors[as.character(idx)], cex = 0.8, font = 2)
+    }
   }
 }
 
-" From the boxplot I can see that 34 is always present as outlier in every variable, 
-except for the last one which does not present outliers."
-
-# Drop the outlier
-scaled_foodproduction <- scaled_foodproduction[-34, ] 
-
-wssplot <- function(data, nc=15, seed=123){
-  wss <- (nrow(data)-1)*sum(apply(data,2,var))
-  for (i in 2:nc){
-    set.seed(123)
-    wss[i] <- sum(kmeans(data, centers=i)$withinss)}
-  plot(1:nc, wss, type="b", xlab="Number of Clusters",
-       ylab="Within groups sum of squares")}
-
-wssplot(scaled_foodproduction, nc=10)
-
-# Try again the k-means algorithm 
-set.seed(123)
-k.means.fit.woutlier <- kmeans(scaled_foodproduction, 5)
-str(k.means.fit.woutlier)
-scaled_foodproduction$cluster <- k.means.fit.woutlier$cluster
-table(k.means.fit.woutlier$cluster, scaled_foodproduction$cluster)
-
-clusplot(scaled_foodproduction, k.means.fit.woutlier$cluster, 
-         main='2D representation of the Cluster solution',
-         color=TRUE, shade=TRUE,
-         labels=2, lines=0)
-
-"Considering all the variables still does not help: choose which one are important"
-
-
-" Try with three principal components"
-# Applica PCA (mantieni 3 componenti principali)
-pca_result <- prcomp(scaled_foodproduction, center = TRUE, scale. = TRUE)
-pca_data <- as.data.frame(pca_result$x[, 1:3])  # Prendi solo le prime 3 componenti
-
-# Applica K-Means (scegli K in base alla tua analisi)
-set.seed(123)  # Per riproducibilità
-kmeans_result <- kmeans(pca_data, centers = 5, nstart = 25)  # Cambia 'centers' se necessario
-
-# Aggiungi i cluster ai dati PCA
-pca_data$Cluster <- as.factor(kmeans_result$cluster)
-pca_data$RowIndex <- rownames(scaled_foodproduction)  
-
-# Plotta con hover text che mostra l'indice della riga
-plot_ly(pca_data, 
-        x = ~PC1, 
-        y = ~PC2, 
-        z = ~PC3, 
-        color = ~Cluster, 
-        text = ~paste("Row:", RowIndex),  # Mostra l'indice della riga
-        colors = c("red", "blue", "green"),
-        type = "scatter3d", 
-        mode = "markers") %>%
-  layout(title = "Cluster in PCA Space")
-
-# Re-try same code without line 36 (lamb & mutton)
-scaled_foodproduction <- scaled_foodproduction[-36, ] 
+" It is evident that those products represents in some ways outliers."
