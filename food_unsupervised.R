@@ -1,4 +1,5 @@
 library(dplyr)
+library(gplots)
 library(factoextra)
 library(FactoMineR)
 library(factoextra)
@@ -141,7 +142,18 @@ dev.off()
 
 # Verify correlation between variables to avoid multicollinearity
 corr_matrix <- cor(scaled_foodproduction)
-heatmap(corr_matrix, main="Correlation map")
+heatmap.2(corr_matrix, 
+          main="Correlation map", 
+          cex.main=0.8, 
+          cexRow=0.6, 
+          cexCol=0.6, 
+          lwd=0.5,   # Puoi lasciare il parametro per la larghezza delle linee
+          trace="none", 
+          sepwidth=c(0.01, 0.01), # Riduce la larghezza delle linee di separazione
+          colsep=1:ncol(corr_matrix), 
+          rowsep=1:nrow(corr_matrix),
+          srtCol=45,
+          srtRow=45)
 
 "It is clear from the heatmap that scarcity-weighted water use is strongly correlated 
 to the fresh water withdrawals (corr > 0.9) We can remove one of the two groups.
@@ -221,7 +233,7 @@ appear scattered on both the 1st and 2nd dimensions."
 
 --------------------------------------------------------------------------------
 
-# Non-linear method to reduce dimensionality
+# Non-linear method to reduce dimensionality using two dimensions.
 library(Rtsne)
 
 # Try t-SNE method: t-distributed Stochastic Neighbor Embedding)
@@ -239,20 +251,9 @@ ggplot(df_tsne, aes(x = Dim1, y = Dim2)) +
   ggtitle("Visualizzazione con t-SNE") +
   theme_minimal()
 
-## K-means on t-SNE
-set.seed(42)
-km_tsne <- kmeans(df_tsne, centers = 3)  
-df_tsne$Cluster <- as.factor(km_tsne$cluster)
 
-ggplot(df_tsne, aes(x = Dim1, y = Dim2, color = Cluster)) +
-  geom_point(alpha = 0.7) +
-  ggtitle("t-SNE con K-means Clustering") +
-  theme_minimal()
+--------------------------------------------------------------------------------
 
-"DB-Scan does is not a good model for our dataset. We can just consider the kmeans"
---------------------
-  
-  
 ## K-MEANS
 # Find optimal number of clusters
 wssplot <- function(data, nc=15, seed=123){
@@ -326,6 +327,20 @@ for (i in 1:ncol(scaled_foodproduction)) {
 
 " It is evident that those products (coffee, dark chocolate, beef herd and lamb)
 present unusual values in almost all the variables."
+
+## Try K-means on t-SNE dimensions
+set.seed(42)
+km_tsne <- kmeans(df_tsne, centers = 4)  
+df_tsne$Cluster <- as.factor(km_tsne$cluster)
+
+ggplot(df_tsne, aes(x = Dim1, y = Dim2, color = Cluster)) +
+  geom_point(alpha = 0.7) +
+  geom_text(aes(label = rownames(df_tsne)), vjust = -1, size = 3)
+  ggtitle("t-SNE con K-means Clustering") +
+  theme_minimal()
+  
+"Using the two dimensions given by the t-SNE method, we do not have outliers anymore:
+the indexes 32,33,34,36 now belong to full clusters."
 
 --------------------------------------------------------------------------------
   
