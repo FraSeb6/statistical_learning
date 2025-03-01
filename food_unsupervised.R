@@ -6,6 +6,7 @@ library(rattle)
 library(cluster)
 library(caret)
 library(plotly)
+library(dbscan)
 
 
 Food_Production <- read.csv("Food_Production.csv")
@@ -48,11 +49,12 @@ We decide to visualize the variables one by one with histograms and boxplots, to
 verify which columns we should convert into logaritms."
 
 # Histograms, boxplot: check variables' distributions
-par(mfrow=c(5,5), mar=c(2, 2, 2, 2))
+par(mfrow=c(6, 4), mar=c(2, 2, 2, 2), oma=c(0, 0, 3, 0))
 for(i in 2:23) {
   hist(Food_Production[, i], 
        main=names(Food_Production)[i], 
        col="lightblue")}
+mtext("Variables original distribution", outer=TRUE, cex=1.5, font=2)
 dev.off()
 
 boxplot(Food_Production[, -1], 
@@ -64,23 +66,12 @@ boxplot(Food_Production[, -1],
 plot(density(Food_Production[,2], na.rm=TRUE), 
      col=rainbow(23)[1], 
      lwd=2, 
-     main="Densità delle Variabili")
+     main="Original dataset density plot")
 for (i in 3:ncol(Food_Production)) {
   lines(density(Food_Production[,i], na.rm=TRUE), 
         col=rainbow(23)[i], 
         lwd=2)}
 legend("topright", legend=names(Food_Production)[2:23], col=rainbow(23), lwd=2, cex=0.6)
-
-# Focus on the last 13 variables
-plot(density(Food_Production[,10], na.rm=TRUE), 
-     col=rainbow(23)[1], 
-     lwd=2, 
-     main="Densità delle Variabili")
-for (i in 3:ncol(Food_Production)) {
-  lines(density(Food_Production[,i], na.rm=TRUE), 
-        col=rainbow(23)[i], 
-        lwd=2)}
-legend("topright", legend=names(Food_Production)[10:23], col=rainbow(23), lwd=2, cex=0.6)
 
 "The distribution of some variables is very skewed to the right: converting them
 to logarithms could change this asymmetry. We cannot keep the dataset like this if 
@@ -96,23 +87,24 @@ Foodproduction_log[, 13:15] <- log1p(Food_Production[, 13:15])
 plot(density(Foodproduction_log[,2], na.rm=TRUE), 
      col=rainbow(23)[1], 
      lwd=2, 
-     main="Densità delle Variabili")
+     main="Modified variables density plot")
 for (i in 3:ncol(Foodproduction_log)) {
   lines(density(Foodproduction_log[,i], na.rm=TRUE), 
         col=rainbow(23)[i], 
         lwd=2)}
 legend("topright", legend=names(Food_Production)[2:23], col=rainbow(23), lwd=2, cex=0.6)
 
-"We see from the density plot that we have many different peaks: this could be
+"We see from the density plot that we have many different peaks: it may be
 a good sign for the clustering process that we are going to explore, since it is
-likely that our data is naturally split in different groups."
+likely that our data is naturally split into different groups."
 
 # Check skewness: repeat visualization
-par(mfrow=c(5,5), mar=c(2, 2, 2, 2))
+par(mfrow=c(6,4), mar=c(2, 2, 2, 2), oma=c(0, 0, 3, 0))
 for(i in 2:23) {
   hist(Foodproduction_log[, i], 
        main=names(Foodproduction_log)[i], 
        col="lightblue")}
+mtext("Modified variables distribution (logs)", outer=TRUE, cex=1.5, font=2)
 dev.off()
 
 boxplot(Foodproduction_log[, -1], 
@@ -132,15 +124,22 @@ scaled_foodproduction <- scaled_foodproduction[, 2:23]
 plot(density(scaled_foodproduction[,2], na.rm=TRUE), 
      col=rainbow(23)[1], 
      lwd=2, 
-     main="Densità delle Variabili")
+     main="Scaled variables density plot")
 for (i in 3:ncol(scaled_foodproduction)) {
   lines(density(scaled_foodproduction[,i], na.rm=TRUE), 
         col=rainbow(23)[i], 
         lwd=2)}
 legend("topright", legend=names(Food_Production)[2:23], col=rainbow(23), lwd=2, cex=0.6)
 
+par(mfrow=c(7,3), mar=c(2, 2, 2, 2), oma=c(0, 0, 3, 0))
+for(i in 2:23) {
+  hist(scaled_foodproduction[, i], 
+       main=names(scaled_foodproduction)[i], 
+       col="lightblue")}
+mtext("Scaled variables distribution", outer=TRUE, cex=1.5, font=2)
+dev.off()
 
-# Verify correlation between variables
+# Verify correlation between variables to avoid multicollinearity
 corr_matrix <- cor(scaled_foodproduction)
 heatmap(corr_matrix, main="Correlation map")
 
@@ -163,7 +162,11 @@ selected_vars <- names(variances[variances > 0.3])
 ## PRINCIPAL COMPONENT ANALYSIS
 pca_result <- prcomp(scaled_foodproduction, center = TRUE, scale. = TRUE)
 pca_data <- as.data.frame(pca_result$x[, 1:3])  
-  
+
+scaled_foodproduction$PC1 <- pca_data$PC1
+scaled_foodproduction$PC2 <- pca_data$PC2
+scaled_foodproduction$PC3 <- pca_data$PC3
+
 fviz_pca_var(
   pca_result,
   col.var = "contrib",
@@ -171,44 +174,85 @@ fviz_pca_var(
   repel = TRUE
 )
 
-# How much variance is explained by each component 
-summary(pca_result)
-# Show the data projected on the first two PC
+"It looks like variables point mainly towards towards the positive side of the 
+second dimension (which in effect explains only 13.5% of the variance in the dataset),
+while they are more dispersed on the first dimension, which alone explains 44% 
+of the variance."
+
+summary(pca_result) # How much variance is explained by each component 
 fviz_pca_ind(pca_result)
 
 "It looks like that the majority of the observations are all very similar, 
 while outside that we have a few observations scattered over the dimensions."
 
-# We may try with three components:
-plot_ly(data = scaled_foodproduction, 
-        x = ~get(cols[1]), y = ~get(cols[2]), z = ~get(cols[3]), 
-        color = ~cluster, colors = c("red", "blue", "green", "purple"),
-        type = "scatter3d", mode = "markers") %>%
-  layout(title = "3D K-Median Clustering")
 
+# We may try the visualization with three components:
+var_coords <- as.data.frame(pca_result$rotation[,1:3]) # variables coordinates
+colnames(var_coords) <- c("Dim1", "Dim2", "Dim3")
 
-fig <- plot_ly(
-  data = pca_data,
-  x = ~PC1, 
-  y = ~PC2, 
-  z = ~PC3, 
-  text = rownames(pca_data), 
-  type = "scatter3d", 
-  mode = "markers",
-  marker = list(size = 5, color = pca_data$PC1, colorscale = "Viridis")
-)
+PCA_plot_3d <- plot_ly()
+for (i in 1:nrow(var_coords)) {
+  PCA_plot_3d <- PCA_plot_3d %>% add_trace(
+    type = "scatter3d",
+    mode = "lines+text",
+    x = c(0, var_coords$Dim1[i]), 
+    y = c(0, var_coords$Dim2[i]), 
+    z = c(0, var_coords$Dim3[i]), 
+    text = c("", rownames(var_coords)[i]),
+    textposition = "top center",
+    line = list(width = 4),
+    marker = list(size = 4, color = "red")
+  )
+}
 
-fig <- fig %>% layout(
+PCA_plot_3d <- PCA_plot_3d %>% layout(
   scene = list(
     xaxis = list(title = "PC1"),
     yaxis = list(title = "PC2"),
     zaxis = list(title = "PC3")
   )
 )
-fig
+PCA_plot_3d
+
+"We see that PC2 combined with PC3 helps clarifying the dispersion, as all 
+variables clearly point towards different directions.
+On the first dimension (PC1) vectors points towards positive values, but still
+appear scattered on both the 1st and 2nd dimensions."
 
 --------------------------------------------------------------------------------
 
+# Non-linear method to reduce dimensionality
+library(Rtsne)
+
+# Try t-SNE method: t-distributed Stochastic Neighbor Embedding)
+"T-SNE should preserve the local structure of the dataset, and therefore it should
+emphasize natural clusters if we have them already in the original data.
+To help visualization, we set a relatively low perplexity paramether, which clearly
+separates observations even if they are close one another."
+
+set.seed(42)
+tsne_results <- Rtsne(scaled_foodproduction[,1:19], dims = 2, perplexity = 5, verbose = TRUE, max_iter = 500)
+df_tsne <- data.frame(Dim1 = tsne_results$Y[,1], Dim2 = tsne_results$Y[,2])
+
+ggplot(df_tsne, aes(x = Dim1, y = Dim2)) +
+  geom_point(alpha = 0.7) +
+  ggtitle("Visualizzazione con t-SNE") +
+  theme_minimal()
+
+## K-means on t-SNE
+set.seed(42)
+km_tsne <- kmeans(df_tsne, centers = 3)  
+df_tsne$Cluster <- as.factor(km_tsne$cluster)
+
+ggplot(df_tsne, aes(x = Dim1, y = Dim2, color = Cluster)) +
+  geom_point(alpha = 0.7) +
+  ggtitle("t-SNE con K-means Clustering") +
+  theme_minimal()
+
+"DB-Scan does is not a good model for our dataset. We can just consider the kmeans"
+--------------------
+  
+  
 ## K-MEANS
 # Find optimal number of clusters
 wssplot <- function(data, nc=15, seed=123){
@@ -243,7 +287,6 @@ We can also see from the plot that that cluster contains the number 34, which is
 We can try to apply the k-median method, or re-try the k-means after dropping the outlier."
 
 # We can also try to look at the 3D plot: use the first three principal components
-
 set.seed(123)  
 kmeans_result <- kmeans(pca_data, centers = 5, nstart = 25)  
 
