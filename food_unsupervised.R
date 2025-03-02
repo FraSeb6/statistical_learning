@@ -351,11 +351,8 @@ influence of the outliers 32, 33, 34 and 36 on the model."
 set.seed(123)
 k.median.fit <- pam(scaled_foodproduction, 4, metric = "manhattan")  
 scaled_foodproduction$cluster <- factor(k.median.fit$clustering)  # Converti cluster in fattore
-
-# Seleziona le prime tre colonne per il grafico 3D
 cols <- colnames(scaled_foodproduction)[1:3]
 
-# Grafico interattivo
 plot_ly(data = scaled_foodproduction, 
         x = ~get(cols[1]), y = ~get(cols[2]), z = ~get(cols[3]), 
         color = ~cluster, colors = c("red", "blue", "green", "purple"),
