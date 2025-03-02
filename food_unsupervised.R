@@ -335,7 +335,7 @@ df_tsne$Cluster <- as.factor(km_tsne$cluster)
 
 ggplot(df_tsne, aes(x = Dim1, y = Dim2, color = Cluster)) +
   geom_point(alpha = 0.7) +
-  geom_text(aes(label = rownames(df_tsne)), vjust = -1, size = 3)
+  geom_text(aes(label = rownames(df_tsne)), vjust = -1, size = 3) +
   ggtitle("t-SNE con K-means Clustering") +
   theme_minimal()
   
