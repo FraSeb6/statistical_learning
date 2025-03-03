@@ -19,7 +19,7 @@ df <- df %>%
     default = ifelse(default == "yes", 1, 0),
     housing = ifelse(housing == "yes", 1, 0),
     loan = ifelse(loan == "yes", 1, 0),
-    y = ifelse(y == "yes", "Subscribed", "Not_subscribed"),  # Use valid names for y
+    y = factor(ifelse(y == "yes", "Subscribed", "Not_subscribed")),
     contacted_before = ifelse(pdays > -1, 1, 0)
   ) %>%
   select(-pdays, -poutcome, -contact)
@@ -27,60 +27,52 @@ df <- df %>%
 #eliminate rows with NA values
 df_clean <- df[complete.cases(df), ]
 
-# Group job categories
+# Group job categories (keep as factor)
 df_clean <- df_clean %>%
   mutate(
-    job_group = case_when(
+    job_group = factor(case_when(
       job %in% c("blue-collar", "technician", "services", "housemaid") ~ "Manual_Work",
       job %in% c("admin.", "management", "entrepreneur", "self-employed") ~ "White_Collar",
       job %in% c("retired", "student", "unemployed") ~ "Non_Working"
-    )
+    ))
   ) %>%
   select(-job)
 
-# Group marital status
+# Group marital status (keep as factor)
 df_clean <- df_clean %>%
   mutate(
-    marital_group = case_when(
+    marital_group = factor(case_when(
       marital %in% c("married") ~ "Married",
       marital %in% c("single", "divorced") ~ "Single"
-    )
+    ))
   ) %>%
   select(-marital)
 
-# Group months into quadrimesters
+# Group months into quadrimesters (keep as factor)
 df_clean <- df_clean %>%
   mutate(
-    quadrimester = case_when(
-      month %in% c("jan", "feb", "mar", "apr") ~ "Q1",
-      month %in% c("may", "jun", "jul", "aug") ~ "Q2",
-      month %in% c("sep", "oct", "nov", "dec") ~ "Q3"
-    )
+    Q = factor(case_when(
+      month %in% c("jan", "feb", "mar", "apr") ~ "1",
+      month %in% c("may", "jun", "jul", "aug") ~ "2",
+      month %in% c("sep", "oct", "nov", "dec") ~ "3"
+    ))
   ) %>%
   select(-month)
 
-#reordering for clarity
+# Reordering for clarity
 df_clean <- df_clean %>%
   select(-y, everything(), y)
 
-
-# One-hot encoding for categorical variables (excluding y)
-dummies <- dummyVars("~ . - y", data = df_clean, fullRank = TRUE)
-df_encoded <- predict(dummies, df_clean) %>% as.data.frame()
-
-
-# Add y back as a factor with valid names
-df_encoded$y <- factor(df_clean$y, levels = c("Not_subscribed", "Subscribed"))
-
 # Normalize numerical variables
 numeric_cols <- c("age", "balance", "duration", "campaign", "previous")
-df_encoded[numeric_cols] <- scale(df_encoded[numeric_cols])
+df_clean[numeric_cols] <- scale(df_clean[numeric_cols])
 
 # Split data into training and test sets
 set.seed(42)
-trainIndex <- createDataPartition(df_encoded$y, p = 0.8, list = FALSE)
-train <- df_encoded[trainIndex, ]
-test <- df_encoded[-trainIndex, ]
+trainIndex <- createDataPartition(df_clean$y, p = 0.8, list = FALSE)
+train <- df_clean[trainIndex, ]
+test <- df_clean[-trainIndex, ]
+
 
 # Logistic regression model -----------------------------------------------------
 
@@ -138,3 +130,4 @@ ggplot() +
   geom_abline(linetype = "dashed") +
   labs(title = paste("ROC Curve - AUC:", round(auc_value, 2)), x = "1 - Specificity", y = "Sensitivity") +
   theme_minimal()
+
