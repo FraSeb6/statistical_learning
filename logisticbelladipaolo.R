@@ -10,13 +10,8 @@ df <- read.csv("bankmarketing/bank.csv", sep = ';')
 
 df[df == "unknown"] <- NA
 
-columns_na <- colSums(is.na(df))
-print(columns_na)
-
 # we are gonna drop the columns with too many unknowns (converted in NA) 
 # and the rows having NA values in job and education (the only two having those)
-
-sum(is.na(df$job) | is.na(df$education)) 
 
 # Convert yes/no to valid factor levels
 df <- df %>%
@@ -90,7 +85,7 @@ test <- df_encoded[-trainIndex, ]
 # Logistic regression model -----------------------------------------------------
 
 # Set up 10-fold cross-validation
-ctrl <- trainControl(method = "cv", number = 10, classProbs = TRUE, summaryFunction = twoClassSummary)
+ctrl <- trainControl(method = "cv", number = 10, sampling = "smote")
 
 # Train logistic regression model
 logistic_model <- train(y ~ ., data = train, method = "glm", family = binomial(), trControl = ctrl)
@@ -99,6 +94,9 @@ logistic_model <- train(y ~ ., data = train, method = "glm", family = binomial()
 summary(logistic_model)
 
 # Model evaluation -----------------------------------------------------------------------
+
+# Cross-validation performance results
+print(logistic_model$results$Accuracy)
 
 # Predictions on the test set
 test$predicted_prob <- predict(logistic_model, newdata = test, type = "prob")[, "Subscribed"]
@@ -124,17 +122,11 @@ ggplot(conf_matrix_table, aes(x = Actual, y = Predicted, fill = Frequency)) +
   ) +
   theme(plot.title = element_text(hjust = 0.5))
 
-# Extract and print key metrics
-cat("Sensitivity:", conf_matrix$byClass["Sensitivity"], "\n")
-cat("Specificity:", conf_matrix$byClass["Specificity"], "\n")
-cat("Accuracy:", conf_matrix$overall["Accuracy"], "\n")
-
 # Calculate and print Matthews Correlation Coefficient (MCC)
 TP <- as.numeric(conf_matrix$table[2, 2])
 TN <- as.numeric(conf_matrix$table[1, 1])
 FP <- as.numeric(conf_matrix$table[2, 1])
 FN <- as.numeric(conf_matrix$table[1, 2])
-
 MCC <- (TP * TN - FP * FN) / sqrt((TP + FP) * (TP + FN) * (TN + FP) * (TN + FN))
 cat("MCC:", MCC, "\n")
 
@@ -146,7 +138,3 @@ ggplot() +
   geom_abline(linetype = "dashed") +
   labs(title = paste("ROC Curve - AUC:", round(auc_value, 2)), x = "1 - Specificity", y = "Sensitivity") +
   theme_minimal()
-
-# Finding the optimal threshold to predict y using the Youden's index
-opt_threshold <- coords(roc_curve, "best", ret = "threshold")
-print(paste("Optimal Threshold based on Youden's index:", opt_threshold))
