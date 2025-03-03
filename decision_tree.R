@@ -2,6 +2,7 @@ library(caret)
 library(dplyr)
 library(ggplot2)
 library(pROC)
+library(rpart.plot)
 
 # Load the dataset
 df <- read.csv("bankmarketing/bank.csv", sep = ';')
@@ -22,7 +23,7 @@ df <- df %>%
     y = factor(ifelse(y == "yes", "Subscribed", "Not_subscribed")),
     contacted_before = ifelse(pdays > -1, 1, 0)
   ) %>%
-  select(-pdays, -poutcome, -contact)
+  select(-pdays, -poutcome, -contact, -day)
 
 #eliminate rows with NA values
 df_clean <- df[complete.cases(df), ]
@@ -102,6 +103,11 @@ ggplot(top_vars, aes(x = reorder(Variable, Overall), y = Overall)) +
   theme(plot.title = element_text(hjust = 0.5))
 
 # Model evaluation --------------------------------------------------------
+
+# Cross-validation performance results
+cv_results<- print(tree$results$Accuracy)
+print(mean(cv_results))
+
 predictions <- predict(tree, newdata = test)
 
 # Confusion Matrix 

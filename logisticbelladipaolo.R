@@ -22,7 +22,7 @@ df <- df %>%
     y = factor(ifelse(y == "yes", "Subscribed", "Not_subscribed")),
     contacted_before = ifelse(pdays > -1, 1, 0)
   ) %>%
-  select(-pdays, -poutcome, -contact)
+  select(-pdays, -poutcome, -contact, -day)
 
 #eliminate rows with NA values
 df_clean <- df[complete.cases(df), ]
