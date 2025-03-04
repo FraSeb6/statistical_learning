@@ -1,70 +1,152 @@
-# Load required libraries
-library(gbm)
 library(caret)
 library(dplyr)
 library(ggplot2)
-library(reshape2)
 library(pROC)
 
-# Load dataset
-data <- read.csv("bankmarketing/bank.csv", sep=";", header=TRUE)
+# Load the dataset
+df <- read.csv("bankmarketing/bank.csv", sep = ';')
 
-# Convert target variable 'y' to binary (yes = 1, no = 0)
-data$y <- ifelse(data$y == "yes", 1, 0)
+# Data cleaning and standardization -----------------------------------------------------------
 
-# Convert categorical variables to factors
-categorical_vars <- c("job", "marital", "education", "default", "housing", "loan", "contact", "month", "poutcome")
-data[categorical_vars] <- lapply(data[categorical_vars], as.factor)
+df[df == "unknown"] <- NA
 
-# Convert 'pdays' to binary variable (contacted before: 1, not contacted: 0)
-data$pdays_binary <- ifelse(data$pdays != -1, 1, 0)
+# we are gonna drop the columns with too many unknowns (converted in NA) 
+# and the rows having NA values in job and education (the only two having those)
 
-# Remove original 'pdays' column
-data <- data %>% select(-pdays)
+# Convert yes/no to valid factor levels
+df <- df %>%
+  mutate(
+    default = ifelse(default == "yes", 1, 0),
+    housing = ifelse(housing == "yes", 1, 0),
+    loan = ifelse(loan == "yes", 1, 0),
+    y = factor(ifelse(y == "yes", "Subscribed", "Not_subscribed")),
+    contacted_before = ifelse(pdays > -1, 1, 0)
+  ) %>%
+  select(-pdays, -poutcome, -contact, -day)
 
-# Move 'y' to the last column
-data <- data %>% select(-y, everything(), y)
+#eliminate rows with NA values
+df_clean <- df[complete.cases(df), ]
 
-# Split data into training (80%) and testing (20%) sets
+# Group job categories (keep as factor)
+df_clean <- df_clean %>%
+  mutate(
+    job_group = factor(case_when(
+      job %in% c("blue-collar", "technician", "services", "housemaid") ~ "Manual_Work",
+      job %in% c("admin.", "management", "entrepreneur", "self-employed") ~ "White_Collar",
+      job %in% c("retired", "student", "unemployed") ~ "Non_Working"
+    ))
+  ) %>%
+  select(-job)
+
+# Group marital status (keep as factor)
+df_clean <- df_clean %>%
+  mutate(
+    marital_group = factor(case_when(
+      marital %in% c("married") ~ "Married",
+      marital %in% c("single", "divorced") ~ "Single"
+    ))
+  ) %>%
+  select(-marital)
+
+# Group months into quadrimesters (keep as factor)
+df_clean <- df_clean %>%
+  mutate(
+    Q = factor(case_when(
+      month %in% c("jan", "feb", "mar", "apr") ~ "1",
+      month %in% c("may", "jun", "jul", "aug") ~ "2",
+      month %in% c("sep", "oct", "nov", "dec") ~ "3"
+    ))
+  ) %>%
+  select(-month)
+
+# Reordering for clarity
+df_clean <- df_clean %>%
+  select(-y, everything(), y)
+
+# Normalize numerical variables
+numeric_cols <- c("age", "balance", "duration", "campaign", "previous")
+df_clean[numeric_cols] <- scale(df_clean[numeric_cols])
+
+# Split data into training and test sets
 set.seed(42)
-trainIndex <- createDataPartition(data$y, p=0.8, list=FALSE)
-trainData <- data[trainIndex, ]
-testData <- data[-trainIndex, ]
+trainIndex <- createDataPartition(df_clean$y, p = 0.8, list = FALSE)
+train <- df_clean[trainIndex, ]
+test <- df_clean[-trainIndex, ]
 
-# Train Gradient Boosting Model
-gbm_model <- gbm(y ~ ., data = trainData, distribution = "bernoulli", n.trees = 100,
-                 interaction.depth = 3, shrinkage = 0.1, cv.folds = 5, n.minobsinnode = 10)
+# gradient boosting regression model -----------------------------------------------------
 
-# Make predictions
-pred_probs <- predict(gbm_model, testData, n.trees = 100, type = "response")
-predictions <- ifelse(pred_probs > 0.5, 1, 0)
+# Set up cross-validation with SMOTE
+ctrl <- trainControl(
+  method = "cv", 
+  number = 10, 
+  sampling = "smote",
+  classProbs = TRUE  # Required for ROC calculation
+)
 
-# Model Evaluation
-conf_matrix <- table(Predicted = predictions, Actual = testData$y)
-accuracy <- sum(diag(conf_matrix)) / sum(conf_matrix)
+# Define a tuning grid for GBM
+tune_grid <- expand.grid(
+  n.trees = seq(50, 250, by = 50),  # Number of boosting iterations
+  interaction.depth = c(1, 3, 5),   # Depth of trees
+  shrinkage = c(0.01, 0.1),         # Learning rate
+  n.minobsinnode = 10               # Minimum number of observations per leaf
+)
 
-# Visualize Confusion Matrix
-conf_matrix_melted <- melt(conf_matrix)
-ggplot(conf_matrix_melted, aes(x = Actual, y = Predicted, fill = value)) +
-  geom_tile() +
-  geom_text(aes(label = value), color = "black", size = 6) +
-  scale_fill_gradient(low = "white", high = "red") +
-  labs(title = "Confusion Matrix", x = "Actual", y = "Predicted") +
-  theme_minimal()
+# Train the GBM model with hyperparameter tuning
+set.seed(42)
+gbm_model <- train(
+  y ~ ., 
+  data = train, 
+  method = "gbm",
+  trControl = ctrl,
+  metric = "Accuracy",  # Optimize for accuracy
+  tuneGrid = tune_grid,
+  verbose = FALSE
+)
 
-# Additional Visualizations
+# Print training results
+print(gbm_model)
 
-# Balance vs. Target variable
-ggplot(data, aes(x = as.factor(y), y = balance, fill = as.factor(y))) +
-  geom_boxplot() +
-  labs(title = "Balance Distribution by Target Variable", x = "Subscription (y)", y = "Balance") +
-  theme_minimal()
+# Best hyperparameters
+best_params <- gbm_model$bestTune
+print(best_params)
 
-# ROC Curve
-roc_curve <- roc(testData$y, pred_probs)
-auc_value <-auc(roc_curve)
-plot(roc_curve, col = "blue", main = paste("ROC - AUC curve:", round(auc_value, 2)))
-# Print results
+# Calculate and print the average accuracy from cross-validation
+avg_accuracy <- mean(gbm_model$resample$Accuracy)
+cat("\nAverage Accuracy:", round(avg_accuracy, 4), "\n")
+
+# Predict on the test set
+gbm_pred <- predict(gbm_model, test)
+
+# Confusion Matrix
+conf_matrix <- confusionMatrix(gbm_pred, test$y)
 print(conf_matrix)
-print(paste("Accuracy:", round(accuracy * 100, 2), "%"))
-print(paste("AUC:", round(auc(roc_curve), 4)))
+
+# Predict probabilities for ROC curve
+gbm_prob <- predict(gbm_model, test, type = "prob")
+
+# Compute ROC curve
+roc_curve <- roc(response = test$y, predictor = gbm_prob[,2], levels = rev(levels(test$y)))
+
+# Print AUC value
+auc_value <- auc(roc_curve)
+cat("\nROC AUC:", round(auc_value, 4), "\n")
+
+# Plot ROC Curve
+plot(roc_curve, col = "blue", main = paste("ROC Curve - AUC (Gradient Boosting):", round(auc_value, 2)))
+
+# --- Confusion Matrix Heatmap --
+# Convert confusion matrix to a dataframe
+cm_data <- as.data.frame(conf_matrix$table)
+colnames(cm_data) <- c("Predicted", "Actual", "Count")
+
+# Ensure correct order of Actual and Predicted labels
+cm_data$Actual <- factor(cm_data$Actual, levels = rev(levels(test$y)))
+cm_data$Predicted <- factor(cm_data$Predicted, levels = rev(levels(test$y)))
+
+# Plot the confusion matrix heatmap
+ggplot(cm_data, aes(x = Actual, y = Predicted, fill = Count)) +
+  geom_tile() +
+  geom_text(aes(label = Count), color = "black", size = 6) +
+  scale_fill_gradient(low = "white", high = "red") +
+  theme_minimal() +
+  labs(title = "Confusion Matrix - Gradient Boosting", x = "Actual", y = "Predicted")

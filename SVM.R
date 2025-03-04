@@ -1,67 +1,148 @@
-# Load required libraries
-library(gbm)
 library(caret)
 library(dplyr)
 library(ggplot2)
-library(reshape2)
 library(pROC)
-library(e1071)
 
-# Load dataset
-data <- read.csv("bankmarketing/bank.csv", sep=";", header=TRUE)
+# Load the dataset
+df <- read.csv("bankmarketing/bank.csv", sep = ';')
 
-# Convert target variable 'y' to binary (yes = 1, no = 0)
-data$y <- ifelse(data$y == "yes", 1, 0)
+# Data cleaning and standardization -----------------------------------------------------------
 
-# Convert categorical variables to factors
-categorical_vars <- c("job", "marital", "education", "default", "housing", "loan", "contact", "month", "poutcome")
-data[categorical_vars] <- lapply(data[categorical_vars], as.factor)
+df[df == "unknown"] <- NA
 
-# Convert 'pdays' to binary variable (contacted before: 1, not contacted: 0)
-data$pdays_binary <- ifelse(data$pdays != -1, 1, 0)
+# we are gonna drop the columns with too many unknowns (converted in NA) 
+# and the rows having NA values in job and education (the only two having those)
 
-# Remove original 'pdays' column
-data <- data %>% select(-pdays)
+# Convert yes/no to valid factor levels
+df <- df %>%
+  mutate(
+    default = ifelse(default == "yes", 1, 0),
+    housing = ifelse(housing == "yes", 1, 0),
+    loan = ifelse(loan == "yes", 1, 0),
+    y = factor(ifelse(y == "yes", "Subscribed", "Not_subscribed")),
+    contacted_before = ifelse(pdays > -1, 1, 0)
+  ) %>%
+  select(-pdays, -poutcome, -contact, -day)
 
-# Move 'y' to the last column
-data <- data %>% select(-y, everything(), y)
+#eliminate rows with NA values
+df_clean <- df[complete.cases(df), ]
 
-# Split data into training (80%) and testing (20%) sets
+# Group job categories (keep as factor)
+df_clean <- df_clean %>%
+  mutate(
+    job_group = factor(case_when(
+      job %in% c("blue-collar", "technician", "services", "housemaid") ~ "Manual_Work",
+      job %in% c("admin.", "management", "entrepreneur", "self-employed") ~ "White_Collar",
+      job %in% c("retired", "student", "unemployed") ~ "Non_Working"
+    ))
+  ) %>%
+  select(-job)
+
+# Group marital status (keep as factor)
+df_clean <- df_clean %>%
+  mutate(
+    marital_group = factor(case_when(
+      marital %in% c("married") ~ "Married",
+      marital %in% c("single", "divorced") ~ "Single"
+    ))
+  ) %>%
+  select(-marital)
+
+# Group months into quadrimesters (keep as factor)
+df_clean <- df_clean %>%
+  mutate(
+    Q = factor(case_when(
+      month %in% c("jan", "feb", "mar", "apr") ~ "1",
+      month %in% c("may", "jun", "jul", "aug") ~ "2",
+      month %in% c("sep", "oct", "nov", "dec") ~ "3"
+    ))
+  ) %>%
+  select(-month)
+
+# Reordering for clarity
+df_clean <- df_clean %>%
+  select(-y, everything(), y)
+
+# Normalize numerical variables
+numeric_cols <- c("age", "balance", "duration", "campaign", "previous")
+df_clean[numeric_cols] <- scale(df_clean[numeric_cols])
+
+# Split data into training and test sets
 set.seed(42)
-trainIndex <- createDataPartition(data$y, p=0.8, list=FALSE)
-trainData <- data[trainIndex, ]
-testData <- data[-trainIndex, ]
+trainIndex <- createDataPartition(df_clean$y, p = 0.8, list = FALSE)
+train <- df_clean[trainIndex, ]
+test <- df_clean[-trainIndex, ]
 
-# Train Support Vector Machine (SVM) Model
-svm_model <- svm(y ~ ., data = trainData, kernel = "radial", cost = 1, gamma = 0.1, probability = TRUE)
+# SVM model -----------------------------------------------------
 
-# Make predictions
-svm_pred_probs <- predict(svm_model, testData, probability = TRUE)
-svm_predictions <- as.numeric(svm_pred_probs)
+# Set up cross-validation with SMOTE
+ctrl <- trainControl(
+  method = "cv", 
+  number = 10, 
+  sampling = "smote",
+  classProbs = TRUE  # Required for ROC calculation
+)
 
-# Model Evaluation
-conf_matrix_svm <- table(Predicted = svm_predictions, Actual = testData$y)
-accuracy_svm <- sum(diag(conf_matrix_svm)) / sum(conf_matrix_svm)
+# Define a tuning grid for SVM
+tune_grid <- expand.grid(
+  C = c(0.1, 1, 10, 100)  # Different cost values to tune the model
+)
 
-# Visualize Confusion Matrix for SVM
-conf_matrix_svm_melted <- melt(conf_matrix_svm)
-ggplot(conf_matrix_svm_melted, aes(x = Actual, y = Predicted, fill = value)) +
+# Train the SVM model with radial basis function (RBF) kernel
+set.seed(42)
+svm_model <- train(
+  y ~ ., 
+  data = train, 
+  method = "svmRadial",
+  trControl = ctrl,
+  metric = "Accuracy",  # Optimize for accuracy
+  tuneGrid = tune_grid
+)
+
+# Print training results
+print(svm_model)
+
+# Best hyperparameters
+best_params <- svm_model$bestTune
+print(best_params)
+
+# Calculate and print the average accuracy from cross-validation
+avg_accuracy <- mean(svm_model$resample$Accuracy)
+cat("\nAverage Accuracy:", round(avg_accuracy, 4), "\n")
+
+# Predict on the test set
+svm_pred <- predict(svm_model, test)
+
+# Confusion Matrix
+conf_matrix <- confusionMatrix(svm_pred, test$y)
+print(conf_matrix)
+
+# Predict probabilities for ROC curve
+svm_prob <- predict(svm_model, test, type = "prob")
+
+# Compute ROC curve
+roc_curve <- roc(response = test$y, predictor = svm_prob[,2], levels = rev(levels(test$y)))
+
+# Print AUC value
+auc_value <- auc(roc_curve)
+cat("\nROC AUC:", round(auc_value, 4), "\n")
+
+# Plot ROC Curve
+plot(roc_curve, col = "blue", main = paste("ROC Curve - AUC (SVM):", round(auc_value, 2)))
+
+# --- Confusion Matrix Heatmap --
+# Convert confusion matrix to a dataframe
+cm_data <- as.data.frame(conf_matrix$table)
+colnames(cm_data) <- c("Predicted", "Actual", "Count")
+
+# Ensure correct order of Actual and Predicted labels
+cm_data$Actual <- factor(cm_data$Actual, levels = rev(levels(test$y)))
+cm_data$Predicted <- factor(cm_data$Predicted, levels = rev(levels(test$y)))
+
+# Plot the confusion matrix heatmap
+ggplot(cm_data, aes(x = Actual, y = Predicted, fill = Count)) +
   geom_tile() +
-  geom_text(aes(label = value), color = "white", size = 6) +
-  scale_fill_gradient(low = "blue", high = "red") +
-  labs(title = "SVM Confusion Matrix", x = "Actual", y = "Predicted") +
-  theme_minimal()
-
-# ROC Curve for SVM
-svm_roc_curve <- roc(testData$y, as.numeric(attr(svm_pred_probs, "probabilities")[,2]))
-ggplot() +
-  geom_line(aes(x = 1 - svm_roc_curve$specificities, y = svm_roc_curve$sensitivities), color = "blue") +
-  geom_abline(linetype = "dashed") +
-  labs(title = "SVM ROC Curve", x = "1 - Specificity", y = "Sensitivity") +
-  theme_minimal()
-
-# Print results
-print(conf_matrix_svm)
-print(paste("SVM Accuracy:", round(accuracy_svm * 100, 2), "%"))
-print(paste("SVM AUC:", round(auc(svm_roc_curve), 4)))
-
+  geom_text(aes(label = Count), color = "black", size = 6) +
+  scale_fill_gradient(low = "white", high = "red") +
+  theme_minimal() +
+  labs(title = "Confusion Matrix - SVM", x = "Actual", y = "Predicted")
