@@ -79,7 +79,7 @@ test <- df_clean[-trainIndex, ]
 # Set up cross-validation with SMOTE
 ctrl <- trainControl(
   method = "cv", 
-  number = 10, 
+  number = 5, 
   sampling = "smote",
   classProbs = TRUE  # Required for ROC calculation
 )
@@ -115,6 +115,15 @@ rf_pred <- predict(rf_model, test)
 # Confusion Matrix
 conf_matrix <- confusionMatrix(rf_pred, test$y)
 print(conf_matrix)
+conf_matrix_table <- as.data.frame(conf_matrix$table)
+colnames(conf_matrix_table) <- c("Predicted", "Actual", "Frequency")
+
+TP <- as.numeric(conf_matrix$table[2, 2])
+TN <- as.numeric(conf_matrix$table[1, 1])
+FP <- as.numeric(conf_matrix$table[2, 1])
+FN <- as.numeric(conf_matrix$table[1, 2])
+MCC <- (TP * TN - FP * FN) / sqrt((TP + FP) * (TP + FN) * (TN + FP) * (TN + FN))
+cat("MCC:", MCC, "\n")
 
 # Predict probabilities for ROC curve
 rf_prob <- predict(rf_model, test, type = "prob")
@@ -128,3 +137,4 @@ cat("\nROC AUC:", round(auc_value, 4), "\n")
 
 # Plot ROC Curve
 plot(roc_curve, col = "blue", main = "ROC Curve - Random Forest")
+
