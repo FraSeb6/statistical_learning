@@ -1,5 +1,8 @@
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 =======
+=======
+>>>>>>> Stashed changes
 library(caret)
 library(dplyr)
 library(ggplot2)
@@ -128,4 +131,7 @@ cat("MCC:", MCC, "\n")
 roc_curve <- roc(test$y, test$predicted_prob)
 auc_value <- auc(roc_curve)
 plot(roc_curve, col = "blue", main = paste("ROC - AUC curve (logistic):", round(auc_value, 2)))
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
