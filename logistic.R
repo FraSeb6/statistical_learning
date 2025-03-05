@@ -1,3 +1,8 @@
+<<<<<<< Updated upstream
+<<<<<<< Updated upstream
+=======
+=======
+>>>>>>> Stashed changes
 library(caret)
 library(dplyr)
 library(ggplot2)
@@ -108,7 +113,7 @@ ggplot(conf_matrix_table, aes(x = Actual, y = Predicted, fill = Frequency)) +
   geom_text(aes(label = Frequency), color = "black", size = 5) +
   theme_minimal() +
   labs(
-    title = "Confusion Matrix",
+    title = "Confusion Matrix (logistic)",
     x = "Actual Class",
     y = "Predicted Class"
   ) +
@@ -125,9 +130,8 @@ cat("MCC:", MCC, "\n")
 # ROC curve and AUC
 roc_curve <- roc(test$y, test$predicted_prob)
 auc_value <- auc(roc_curve)
-ggplot() +
-  geom_line(aes(x = 1 - roc_curve$specificities, y = roc_curve$sensitivities), color = "blue") +
-  geom_abline(linetype = "dashed") +
-  labs(title = paste("ROC Curve - AUC:", round(auc_value, 2)), x = "1 - Specificity", y = "Sensitivity") +
-  theme_minimal()
-
+plot(roc_curve, col = "blue", main = paste("ROC - AUC curve (logistic):", round(auc_value, 2)))
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
+>>>>>>> Stashed changes
