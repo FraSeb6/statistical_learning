@@ -1,3 +1,4 @@
+# Load libraries
 library(caret)
 library(dplyr)
 library(ggplot2)
@@ -8,71 +9,33 @@ df <- read.csv("bankmarketing/bank.csv", sep = ';')
 
 # Data cleaning and standardization -----------------------------------------------------------
 
-df[df == "unknown"] <- NA
-
-# we are gonna drop the columns with too many unknowns (converted in NA) 
-# and the rows having NA values in job and education (the only two having those)
-
 # Convert yes/no to valid factor levels
 df <- df %>%
   mutate(
     default = ifelse(default == "yes", 1, 0),
     housing = ifelse(housing == "yes", 1, 0),
     loan = ifelse(loan == "yes", 1, 0),
-    y = factor(ifelse(y == "yes", "Subscribed", "Not_subscribed")),
+    y = ifelse(y == "yes", "Subscribed", "Not_subscribed"),  # Use valid names for y
     contacted_before = ifelse(pdays > -1, 1, 0)
   ) %>%
-  select(-pdays, -poutcome, -contact, -day)
+  select(-pdays)
 
-#eliminate rows with NA values
-df_clean <- df[complete.cases(df), ]
+# One-hot encoding for categorical variables (excluding y)
+dummies <- dummyVars("~ . - y", data = df, fullRank = TRUE)
+df_encoded <- predict(dummies, df) %>% as.data.frame()
 
-# Group job categories (keep as factor)
-df_clean <- df_clean %>%
-  mutate(
-    job_group = factor(case_when(
-      job %in% c("blue-collar", "technician", "services", "housemaid") ~ "Manual_Work",
-      job %in% c("admin.", "management", "entrepreneur", "self-employed") ~ "White_Collar",
-      job %in% c("retired", "student", "unemployed") ~ "Non_Working"
-    ))
-  ) %>%
-  select(-job)
-
-# Group marital status (keep as factor)
-df_clean <- df_clean %>%
-  mutate(
-    marital_group = factor(case_when(
-      marital %in% c("married") ~ "Married",
-      marital %in% c("single", "divorced") ~ "Single"
-    ))
-  ) %>%
-  select(-marital)
-
-# Group months into quadrimesters (keep as factor)
-df_clean <- df_clean %>%
-  mutate(
-    Q = factor(case_when(
-      month %in% c("jan", "feb", "mar", "apr") ~ "1",
-      month %in% c("may", "jun", "jul", "aug") ~ "2",
-      month %in% c("sep", "oct", "nov", "dec") ~ "3"
-    ))
-  ) %>%
-  select(-month)
-
-# Reordering for clarity
-df_clean <- df_clean %>%
-  select(-y, everything(), y)
+# Add y back as a factor with valid names
+df_encoded$y <- factor(df$y, levels = c("Not_subscribed", "Subscribed"))
 
 # Normalize numerical variables
 numeric_cols <- c("age", "balance", "duration", "campaign", "previous")
-df_clean[numeric_cols] <- scale(df_clean[numeric_cols])
+df_encoded[numeric_cols] <- scale(df_encoded[numeric_cols])
 
 # Split data into training and test sets
 set.seed(42)
-trainIndex <- createDataPartition(df_clean$y, p = 0.8, list = FALSE)
-train <- df_clean[trainIndex, ]
-test <- df_clean[-trainIndex, ]
-
+trainIndex <- createDataPartition(df_encoded$y, p = 0.8, list = FALSE)
+train <- df_encoded[trainIndex, ]
+test <- df_encoded[-trainIndex, ]
 
 # Logistic regression model -----------------------------------------------------
 
@@ -86,11 +49,10 @@ logistic_model <- train(y ~ ., data = train, method = "glm", family = binomial()
 summary(logistic_model)
 
 # Model evaluation -----------------------------------------------------------------------
-
 # Cross-validation performance results
 print(logistic_model$results$Accuracy)
 
-# Predictions on the test set
+#Predictions on the test set
 test$predicted_prob <- predict(logistic_model, newdata = test, type = "prob")[, "Subscribed"]
 test$predicted_class <- ifelse(test$predicted_prob > 0.5, "Subscribed", "Not_subscribed")
 
@@ -98,7 +60,7 @@ test$predicted_class <- ifelse(test$predicted_prob > 0.5, "Subscribed", "Not_sub
 conf_matrix <- confusionMatrix(factor(test$predicted_class, levels = c("Not_subscribed", "Subscribed")), test$y)
 print(conf_matrix)
 
-# Create confusion matrix visualization
+# to create the graph:
 conf_matrix_table <- as.data.frame(conf_matrix$table)
 colnames(conf_matrix_table) <- c("Predicted", "Actual", "Frequency")
 
@@ -114,20 +76,21 @@ ggplot(conf_matrix_table, aes(x = Actual, y = Predicted, fill = Frequency)) +
   ) +
   theme(plot.title = element_text(hjust = 0.5))
 
+# Extract and print key metrics
+cat("Sensitivity:", conf_matrix$byClass["Sensitivity"], "\n")
+cat("Specificity:", conf_matrix$byClass["Specificity"], "\n")
+cat("Accuracy:", conf_matrix$overall["Accuracy"], "\n")
+
 # Calculate and print Matthews Correlation Coefficient (MCC)
 TP <- as.numeric(conf_matrix$table[2, 2])
 TN <- as.numeric(conf_matrix$table[1, 1])
 FP <- as.numeric(conf_matrix$table[2, 1])
 FN <- as.numeric(conf_matrix$table[1, 2])
+
 MCC <- (TP * TN - FP * FN) / sqrt((TP + FP) * (TP + FN) * (TN + FP) * (TN + FN))
 cat("MCC:", MCC, "\n")
 
 # ROC curve and AUC
-roc_curve <- roc(test$y, test$predicted_prob)
+roc_curve <- roc(as.numeric(test$y) - 1, test$predicted_prob)
 auc_value <- auc(roc_curve)
-ggplot() +
-  geom_line(aes(x = 1 - roc_curve$specificities, y = roc_curve$sensitivities), color = "blue") +
-  geom_abline(linetype = "dashed") +
-  labs(title = paste("ROC Curve - AUC:", round(auc_value, 2)), x = "1 - Specificity", y = "Sensitivity") +
-  theme_minimal()
-
+plot(roc_curve, col = "blue", main = paste("ROC - AUC curve:", round(auc_value, 2)))
