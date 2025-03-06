@@ -2,15 +2,14 @@
 library(dplyr)
 library(caret)
 library(ggplot2)
-library(rpart)
-library(rpart.plot)
+library(randomForest)
 library(pROC)
 library(mltools)
 
 # Load the dataset
 titanic <- read.csv("titanic_combined.csv")
 
-# Data cleaning -----------------------------------------------------------
+# Data Cleaning -----------------------------------------------------------
 # Drop unnecessary columns
 titanic <- titanic[, !names(titanic) %in% c("PassengerId", "Name", "Ticket", "Cabin")]
 
@@ -47,22 +46,23 @@ train_index <- createDataPartition(titanic$Survived, p = 0.8, list = FALSE)
 train <- titanic[train_index, ]
 test <- titanic[-train_index, ]
 
-# Train Decision Tree Model -----------------------------------------------
+# Train Random Forest Model -----------------------------------------------
 set.seed(123)
-tree_model <- train(
+rf_model <- train(
   Survived ~ ., 
   data = train, 
-  method = "rpart", 
+  method = "rf", 
   trControl = trainControl(method = "cv", number = 10),
+  tuneGrid = expand.grid(mtry = sqrt(ncol(train) - 1)),  # Auto-tune 'mtry'
   metric = "Accuracy"
 )
 
-# Print the decision tree structure
-rpart.plot(tree_model$finalModel, extra = 104, fallen.leaves = TRUE)
+# Print Model Summary
+print(rf_model)
 
 # Model Evaluation --------------------------------------------------------
 # Predictions on test set
-test$predictions <- predict(tree_model, newdata = test)
+test$predictions <- predict(rf_model, newdata = test)
 
 # Confusion Matrix
 conf_matrix <- confusionMatrix(test$predictions, test$Survived)
@@ -78,7 +78,7 @@ ggplot(conf_matrix_table, aes(x = Actual, y = Predicted, fill = Frequency)) +
   geom_text(aes(label = Frequency), color = "black", size = 5) +
   theme_minimal() +
   labs(
-    title = "Confusion Matrix (Decision Tree)",
+    title = "Confusion Matrix (Random Forest)",
     x = "Actual Class",
     y = "Predicted Class"
   ) +
@@ -91,7 +91,7 @@ MCC <- mcc(preds = predictions, actuals = actuals)
 print(paste("Matthews Correlation Coefficient (MCC):", MCC))
 
 # ROC Curve and AUC Score
-test$Survival_Probability <- predict(tree_model, newdata = test, type = "prob")[,2]
+test$Survival_Probability <- predict(rf_model, newdata = test, type = "prob")[,2]
 roc_curve <- roc(test$Survived, test$Survival_Probability)
 auc_value <- auc(roc_curve)
-plot(roc_curve, col = "blue", main = paste("ROC - AUC Curve (Decision Tree):", round(auc_value, 2)))
+plot(roc_curve, col = "blue", main = paste("ROC - AUC Curve (Random Forest):", round(auc_value, 2)))
