@@ -2,65 +2,82 @@
 library(dplyr)
 library(caret)
 library(ggplot2)
-library(rpart)
-library(rpart.plot)
-library(pROC)
+library(car)
 library(mltools)
+library(pROC)
 
-# Load the dataset
+# Load the datasets
 titanic <- read.csv("titanic_combined.csv")
 
 # Data cleaning -----------------------------------------------------------
-# Drop unnecessary columns
+# drop useless columns
 titanic <- titanic[, !names(titanic) %in% c("PassengerId", "Name", "Ticket", "Cabin")]
 
 titanic[titanic == ""] <- NA
-
 # Convert categorical variables to factors
 titanic$Pclass <- as.factor(titanic$Pclass)
 titanic$Sex <- as.factor(titanic$Sex)
 titanic$Embarked <- as.factor(titanic$Embarked)
 titanic$Survived <- as.factor(titanic$Survived)
 
-# Impute missing values ---------------------------------------------------
-# Function to get mode (most frequent value)
+# In order not to have to standardize we just don't consider the outliers for Fare
+max(titanic$Fare, na.rm = TRUE)
+boxplot(titanic$Fare)
+
+titanic <- titanic[!is.na(titanic$Fare) & round(titanic$Fare, 3) != 512.329, ]
+
+# Impute missing values ---------------------------------------------
+# Function to calculate the mode (most frequent value)
 get_mode <- function(v) {
   uniqv <- unique(v)
   uniqv[which.max(tabulate(match(v, uniqv)))]
 }
 
-# Impute missing values
+# Impute Age with median
 titanic$Age[is.na(titanic$Age)] <- median(titanic$Age, na.rm = TRUE)
+
+# Impute Embarked with mode
 titanic$Embarked[is.na(titanic$Embarked)] <- get_mode(titanic$Embarked)
+
+# Impute Fare with median
 titanic$Fare[is.na(titanic$Fare)] <- median(titanic$Fare, na.rm = TRUE)
 
-# Standardize Numeric Columns
-numeric_columns <- titanic[, c("Age", "Fare", "SibSp", "Parch")]
-titanic_standardized <- scale(numeric_columns)
-titanic_standardized <- as.data.frame(titanic_standardized)
-titanic[, c("Age", "Fare", "SibSp", "Parch")] <- titanic_standardized
-
-# Split data into training (80%) and testing (20%) ------------------------
+# Create a partition (80% for training, 20% for testing)
 set.seed(123)  # For reproducibility
 train_index <- createDataPartition(titanic$Survived, p = 0.8, list = FALSE)
 
+# Split the data into training and testing sets
 train <- titanic[train_index, ]
 test <- titanic[-train_index, ]
 
 # Train Decision Tree Model -----------------------------------------------
-set.seed(123)
+train$Survived <- factor(train$Survived, levels = c(0, 1), labels = c("Not Survived", "Survived"))
+
+grid_dc <- expand.grid(cp = seq(0.001, 0.1, by = 0.01))
+
+# Train the decision tree model
 tree_model <- train(
   Survived ~ ., 
   data = train, 
   method = "rpart", 
   trControl = trainControl(method = "cv", number = 10),
+  tuneGrid = grid_dc,
   metric = "Accuracy"
 )
+
+# Plot the tree model's performance across different tuning parameters
+plot(tree_model)
 
 # Print the decision tree structure
 rpart.plot(tree_model$finalModel, extra = 104, fallen.leaves = TRUE)
 
 # Model Evaluation --------------------------------------------------------
+test$Survived <- factor(test$Survived, levels = c(0, 1), labels = c("Not Survived", "Survived"))
+
+# cross-validation evaluation 
+best_accuracy <- tree_model$results[tree_model$bestTune$cp == tree_model$results$cp, "Accuracy"]
+print(best_accuracy)
+
 # Predictions on test set
 test$predictions <- predict(tree_model, newdata = test)
 

@@ -6,7 +6,12 @@ library(patchwork)
 titanic <- read.csv("titanic_combined.csv")
 titanic <- titanic[, !names(titanic) %in% c("PassengerId", "Name", "Ticket", "Cabin")]
 titanic[titanic == ""] <- NA
-str(titanic)
+
+titanic$Pclass <- as.factor(titanic$Pclass)
+titanic$Sex <- as.factor(titanic$Sex)
+titanic$Embarked <- as.factor(titanic$Embarked)
+titanic$Survived <- as.factor(titanic$Survived)
+titanic$Survived <- factor(titanic$Survived, levels = c(0, 1), labels = c("No", "Yes"))
 
 get_mode <- function(v) {
   uniqv <- unique(v)
@@ -21,8 +26,8 @@ titanic$Embarked[is.na(titanic$Embarked)] <- get_mode(titanic$Embarked)
 # Impute Fare with median
 titanic$Fare[is.na(titanic$Fare)] <- median(titanic$Fare, na.rm = TRUE)
 
+
 ## Target distribution --------------------------------------------------------
-titanic$Survived <- factor(titanic$Survived, levels = c(0, 1), labels = c("No", "Yes"))
 
 target_dist <- ggplot(titanic, aes(x = Survived, fill = Survived)) +
   geom_bar(color = "black") +
@@ -34,6 +39,8 @@ target_dist <- ggplot(titanic, aes(x = Survived, fill = Survived)) +
   labs(title = "Survived Distribution", x = "Survived", y = "Count") +
   theme_minimal() +
   theme(plot.title = element_text(hjust = 0.5))
+
+# the target distribution is pretty balanced
 
 # Categorical Variables -------------------------------------------------------------------------
 
@@ -53,7 +60,11 @@ class_dist <- ggplot(class_counts, aes(x = Pclass, y = count, fill = Survived)) 
   theme_minimal() +
   theme(plot.title = element_text(hjust = 0.5))
 
-class_dist
+#pclass: A proxy for socio-economic status (SES)
+# 1st = Upper
+# 2nd = Middle
+# 3rd = Lower
+# COMMENT: we can already notice an higher percentage of people survived from the upper group
 
 # Sex distribution
 sex_counts <- titanic %>%
@@ -71,6 +82,7 @@ sex_dist <- ggplot(sex_counts, aes(x = Sex, y = count, fill = Survived)) +
   theme_minimal() +
   theme(plot.title = element_text(hjust = 0.5))
 
+#COMMENT: As we could expect, a much higher percentage of female saved
 
 # Embarked distribution
 embarked_counts <- titanic %>%
@@ -88,6 +100,8 @@ embarked_dist <- ggplot(embarked_counts, aes(x = Embarked, y = count, fill = Sur
   theme_minimal() +
   theme(plot.title = element_text(hjust = 0.5))
 
+# Not a big difference in place of embarkment, as we could expect
+
 
 # Numerical Variables -------------------------------------------------------------------------
 
@@ -103,9 +117,14 @@ sibsp_dist <- ggplot(sibsp_counts, aes(x = SibSp, y = count, fill = Survived)) +
   geom_text(aes(y = count, 
                 label = ifelse(count > 10, paste0(percentage, "%"), "")),  # Only show percentage if count > 10
             position = position_stack(vjust = 0.5), size = 3) +
+  scale_x_continuous(breaks = 0:8) +
   labs(title = "SibSp Distribution by Survival", x = "Siblings/Spouses (SibSp)", y = "Count") +
   theme_minimal() +
   theme(plot.title = element_text(hjust = 0.5))
+
+# COMMENT: In general, stopping our interpretation just to "classes" 
+# with none or one sibling or spouse, we notice that an higher percentage of people
+# saved within those that had one of them, but the difference in numbers is too high to interpret them correctly
 
 # Parch distribution
 parch_counts <- titanic %>%
@@ -119,9 +138,12 @@ parch_dist <- ggplot(parch_counts, aes(x = Parch, y = count, fill = Survived)) +
   geom_text(aes(y = count, 
                 label = ifelse(count > 10, paste0(percentage, "%"), "")),  # Only show percentage if count > 10
             position = position_stack(vjust = 0.5), size = 3) +
+  scale_x_continuous(breaks = 0:9) +
   labs(title = "Parch Distribution by Survival", x = "Parents/Children (Parch)", y = "Count") +
   theme_minimal() +
   theme(plot.title = element_text(hjust = 0.5))
+
+# COMMENT: similar to the SibSp Distribution
 
 
 # Age distribution
@@ -132,6 +154,8 @@ age_dist <- ggplot(titanic, aes(x = Age, fill = Survived)) +
   theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 7)) +
   theme_minimal()
 
+# COMMENT: We can start noticing that children and adults had different survival rates 
+
 
 # Fare distribution
 fare_dist <- ggplot(titanic, aes(x = Fare, fill = Survived)) + 
@@ -141,6 +165,9 @@ fare_dist <- ggplot(titanic, aes(x = Fare, fill = Survived)) +
   xlim(0, 300) +
   theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 7)) +
   theme_minimal()
+
+# COMMENT: Again a pretty similar conclusion as the one we had from PClass
+# people who payed more for their ticket have an higher survival rate
 
 # Visualize ---------------------------------------------------------------
 

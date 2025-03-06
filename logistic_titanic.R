@@ -20,6 +20,12 @@ titanic$Sex <- as.factor(titanic$Sex)
 titanic$Embarked <- as.factor(titanic$Embarked)
 titanic$Survived <- as.factor(titanic$Survived)
 
+# In order not to have to standardize we just don't consider the outliers for Fare
+max(titanic$Fare, na.rm = TRUE)
+boxplot(titanic$Fare)
+
+titanic <- titanic[!is.na(titanic$Fare) & round(titanic$Fare, 3) != 512.329, ]
+
 # Impute missing values ---------------------------------------------
 # Function to calculate the mode (most frequent value)
 get_mode <- function(v) {
@@ -35,13 +41,6 @@ titanic$Embarked[is.na(titanic$Embarked)] <- get_mode(titanic$Embarked)
 
 # Impute Fare with median
 titanic$Fare[is.na(titanic$Fare)] <- median(titanic$Fare, na.rm = TRUE)
-
-# Standardize Numeric columns
-numeric_columns <- titanic[, c("Age", "Fare", "SibSp", "Parch")]
-titanic_standardized <- scale(numeric_columns)
-titanic_standardized <- as.data.frame(titanic_standardized)
-titanic[, c("Age", "Fare", "SibSp", "Parch")] <- titanic_standardized
-
 
 # Create a partition (80% for training, 20% for testing)
 set.seed(123)  # For reproducibility
@@ -61,6 +60,10 @@ logit_model <- train(Survived ~ ., data = train, method = "glm", family = binomi
 
 # Summary of the model
 summary(logit_model$finalModel)
+
+logit_model$results
+
+
 
 
 # Evaluation of the Model -------------------------------------------------
