@@ -42,6 +42,7 @@ titanic_standardized <- scale(numeric_columns)
 titanic_standardized <- as.data.frame(titanic_standardized)
 titanic[, c("Age", "Fare", "SibSp", "Parch")] <- titanic_standardized
 
+
 # Create a partition (80% for training, 20% for testing)
 set.seed(123)  # For reproducibility
 train_index <- createDataPartition(titanic$Survived, p = 0.8, list = FALSE)
