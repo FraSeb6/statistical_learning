@@ -49,8 +49,11 @@ train_index <- createDataPartition(titanic$Survived, p = 0.8, list = FALSE)
 train <- titanic[train_index, ]
 test <- titanic[-train_index, ]
 
+
 # Train Random Forest Model -----------------------------------------------
 # Create a tuneGrid for Random Forest
+library(randomForest)
+
 n_predictors <- ncol(titanic)-1
 mtry_value <- round(sqrt(n_predictors)) 
 rf_grid <- expand.grid(mtry = seq(mtry_value - 2, mtry_value + 2))
@@ -67,13 +70,18 @@ rf_model <- train(
 # Print Model Summary
 print(rf_model)
 
+#Variable importance
+var_imp <- varImp(rf_model)
+plot(var_imp, main = "Variable Importance")
+
 # Model Evaluation --------------------------------------------------------
 results_df <- as.data.frame(rf_model$results)
 ggplot(results_df, aes(x = mtry, y = Accuracy)) +
   geom_point(color = "blue") +
   geom_line(color = "blue") +
   labs(title = "Accuracy vs. mtry", x = "mtry", y = "Accuracy") +
-  theme_minimal()
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5))
 
 best_accuracy <- rf_model$results[rf_model$bestTune$mtry == rf_model$results$mtry, "Accuracy"]
 print(best_accuracy)
