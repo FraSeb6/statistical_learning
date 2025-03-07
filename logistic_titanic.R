@@ -120,7 +120,7 @@ plot(roc_curve, col = "blue", main = paste("ROC - AUC curve (Logistic):", round(
 # as we could have imagined, the sex. Followed by the belonging to a certain socio-economic class
 # and, in lower extent, to age
 # What the logistic model fails to capture is, apparently, the Fare contribution
-# We'll se how well other models do
+# (apparently because it doesn't have a linear relation with the target)
 
 
 

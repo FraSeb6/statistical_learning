@@ -232,5 +232,6 @@ plot(roc_curve3, col = "blue", main = paste("ROC-AUC Curve (Decision Tree-ctree)
 
 # INTERPRETATION AND RECAP OF RESULTS ----------------------------------------------------------
 # All decision tree give good results
+# (chat) it may suffer from overfitting and it's less interpretable than the logistic 
 # we may analyze the influence of certain variables more than others
 # for the last tree non sono stato capace di fare la Varimp ma manco chat pare sia in grado

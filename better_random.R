@@ -21,12 +21,16 @@ titanic$Sex <- as.factor(titanic$Sex)
 titanic$Embarked <- as.factor(titanic$Embarked)
 titanic$Survived <- as.factor(titanic$Survived)
 
+# Round ages < 1 to 1
+titanic$Age[titanic$Age < 1] <- 1
+titanic$Age <- round(titanic$Age)
+
 # In order not to have to standardize we just don't consider the outliers for Fare
 max(titanic$Fare, na.rm = TRUE)
 
 titanic <- titanic[!is.na(titanic$Fare) & round(titanic$Fare, 3) != 512.329, ]
 
-# Impute missing values ---------------------------------------------
+# Impute missing values
 # Function to calculate the mode (most frequent value)
 get_mode <- function(v) {
   uniqv <- unique(v)
@@ -86,6 +90,7 @@ rf <- randomForest(Survived ~ ., data = train, mtry=2)
 
 # Get the variable importance from the Random Forest model
 var_importance_rf <- sort(rf$importance[, 1], decreasing = TRUE)
+print(var_importance_rf)
 
 barplot(
   var_importance_rf,
@@ -115,7 +120,7 @@ ggplot(conf_matrix_table, aes(x = Actual, y = Predicted, fill = Frequency)) +
   geom_text(aes(label = Frequency), color = "black", size = 5) +
   theme_minimal() +
   labs(
-    title = "Confusion Matrix (Decision Tree)",
+    title = "Confusion Matrix (Random Forest)",
     x = "Actual Class",
     y = "Predicted Class"
   ) +
@@ -131,4 +136,13 @@ print(paste("Matthews Correlation Coefficient (MCC):", MCC))
 Survival_Probability <- predict(rf, newdata = test, type = "prob")[,2]
 roc_curve <- roc(test$Survived, Survival_Probability)
 auc_value <- auc(roc_curve)
-plot(roc_curve, col = "blue", main = paste("ROC - AUC Curve (Decision Tree):", round(auc_value, 2)))
+plot(roc_curve, col = "blue", main = paste("ROC - AUC Curve (Random Forest):", round(auc_value, 2)))
+
+
+# INTERPRETATION AND RECAP OF RESULTS  ----------------------------------------------------------
+# We get a really good model with Random Forest as well (Accuracy = 0.8615, MCC = 0.7, AUC = 0.93)
+# It gives more robust results than decision trees, but the accuracy is the same as the logistic
+# plus it loses much interpretability (possibly not the best choice)
+# Sex is still the dominant variable, while Fare and Age seem to be more important than in the other models
+# 
+
