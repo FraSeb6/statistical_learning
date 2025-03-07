@@ -29,7 +29,7 @@ max(titanic$Fare, na.rm = TRUE)
 
 titanic <- titanic[!is.na(titanic$Fare) & round(titanic$Fare, 3) != 512.329, ]
 
-# Impute missing values ---------------------------------------------
+# Impute missing values
 # Function to calculate the mode (most frequent value)
 get_mode <- function(v) {
   uniqv <- unique(v)
