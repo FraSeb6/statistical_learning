@@ -20,9 +20,12 @@ titanic$Sex <- as.factor(titanic$Sex)
 titanic$Embarked <- as.factor(titanic$Embarked)
 titanic$Survived <- as.factor(titanic$Survived)
 
+# Round ages < 1 to 1
+titanic$Age[titanic$Age < 1] <- 1
+titanic$Age <- round(titanic$Age)
+
 # In order not to have to standardize we just don't consider the outliers for Fare
 max(titanic$Fare, na.rm = TRUE)
-boxplot(titanic$Fare)
 
 titanic <- titanic[!is.na(titanic$Fare) & round(titanic$Fare, 3) != 512.329, ]
 
@@ -62,8 +65,6 @@ logit_model <- train(Survived ~ ., data = train, method = "glm", family = binomi
 summary(logit_model$finalModel)
 
 logit_model$results
-
-
 
 
 # Evaluation of the Model -------------------------------------------------
@@ -108,4 +109,41 @@ print(paste("Matthews Correlation Coefficient (MCC):", MCC))
 # ROC-AUC curve
 roc_curve <- roc(test$Survived, test$Survival_Probability)
 auc_value <- auc(roc_curve)
-plot(roc_curve, col = "blue", main = paste("ROC - AUC curve (logistic):", round(auc_value, 2)))
+plot(roc_curve, col = "blue", main = paste("ROC - AUC curve (Logistic):", round(auc_value, 2)))
+
+
+# INTERPRETATION AND RECAP OF RESULTS -------------------------------------
+# Using the Logistic model we obtain a really good model with an high accuracy of 86.15% 
+# An AUC value of 0.9 and a MCC of 0.7
+
+# We can notice that the variable contributing the most to the estimation is,
+# as we could have imagined, the sex. Followed by the belonging to a certain socio-economic class
+# and, in lower extent, to age
+# What the logistic model fails to capture is, apparently, the Fare contribution
+# We'll se how well other models do
+
+
+
+# At the end of the presentation of the three main models, we try to create a new logistic
+# considering a non-linear relation between Survival and Fare
+# Other logistic models to capture Fare (non linearity for Fare) -------------------------
+train$Fare2 <- train$Fare^2
+test$Fare2 <- test$Fare^2
+new_logistic <- train(Survived ~ Pclass + Sex + Age + Fare + Fare2, data = train, method = "glm", family = binomial,
+                      trControl = trainControl(method = "cv", number = 10), 
+                      metric = "Accuracy")
+
+summary(new_logistic)
+
+train$Fare_scaled <- scale(train$Fare)
+neww_logistic <- train(Survived ~ Pclass + Sex + Age + Fare_scaled, data = train, method = "glm", family = binomial,
+                      trControl = trainControl(method = "cv", number = 10), 
+                      metric = "Accuracy")
+summary(neww_logistic)
+
+train$logFare <- log(train$Fare + 1)
+newww_logistic <- train(Survived ~ Pclass + Sex + Age + logFare, data = train, method = "glm", family = binomial,
+                        trControl = trainControl(method = "cv", number = 10), 
+                        metric = "Accuracy")
+
+summary(newww_logistic)
