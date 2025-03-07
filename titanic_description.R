@@ -2,6 +2,8 @@ library(ggplot2)
 library(dplyr)
 library(patchwork)
 
+# Data -------------------------------------------------------
+
 # Load the datasets
 titanic <- read.csv("titanic_combined.csv")
 titanic <- titanic[, !names(titanic) %in% c("PassengerId", "Name", "Ticket", "Cabin")]
@@ -12,6 +14,10 @@ titanic$Sex <- as.factor(titanic$Sex)
 titanic$Embarked <- as.factor(titanic$Embarked)
 titanic$Survived <- as.factor(titanic$Survived)
 titanic$Survived <- factor(titanic$Survived, levels = c(0, 1), labels = c("No", "Yes"))
+
+# Round ages < 1 to 1
+titanic$Age[titanic$Age < 1] <- 1
+titanic$Age <- round(titanic$Age)
 
 get_mode <- function(v) {
   uniqv <- unique(v)
@@ -27,7 +33,7 @@ titanic$Embarked[is.na(titanic$Embarked)] <- get_mode(titanic$Embarked)
 titanic$Fare[is.na(titanic$Fare)] <- median(titanic$Fare, na.rm = TRUE)
 
 
-## Target distribution --------------------------------------------------------
+# Target distribution --------------------------------------------------------
 
 target_dist <- ggplot(titanic, aes(x = Survived, fill = Survived)) +
   geom_bar(color = "black") +
@@ -40,7 +46,8 @@ target_dist <- ggplot(titanic, aes(x = Survived, fill = Survived)) +
   theme_minimal() +
   theme(plot.title = element_text(hjust = 0.5))
 
-# the target distribution is pretty balanced
+# the target distribution showing us that an higher percentage of people on the Titanic
+# did not survive, but not a big enough unbalance to ask us to rebalance the levels
 
 # Categorical Variables -------------------------------------------------------------------------
 
@@ -56,7 +63,7 @@ class_dist <- ggplot(class_counts, aes(x = Pclass, y = count, fill = Survived)) 
   geom_text(aes(y = count, 
                 label = paste0(percentage, "%")),
             position = position_stack(vjust = 0.5), size = 3) +
-  labs(title = "Pclass Distribution by Survival", x = "Pclass", y = "Count") +
+  labs(title = "Class Distribution by Survival", x = "Pclass", y = "Count") +
   theme_minimal() +
   theme(plot.title = element_text(hjust = 0.5))
 
@@ -167,7 +174,8 @@ fare_dist <- ggplot(titanic, aes(x = Fare, fill = Survived)) +
   theme_minimal()
 
 # COMMENT: Again a pretty similar conclusion as the one we had from PClass
-# people who payed more for their ticket have an higher survival rate
+# people who payed more for their ticket have an higher survival rate, 
+# but the relation might not be that significant 
 
 # Visualize ---------------------------------------------------------------
 
