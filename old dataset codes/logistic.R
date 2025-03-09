@@ -1,3 +1,8 @@
+<<<<<<< Updated upstream
+<<<<<<< Updated upstream
+=======
+=======
+>>>>>>> Stashed changes
 library(caret)
 library(dplyr)
 library(ggplot2)
@@ -10,13 +15,8 @@ df <- read.csv("bankmarketing/bank.csv", sep = ';')
 
 df[df == "unknown"] <- NA
 
-columns_na <- colSums(is.na(df))
-print(columns_na)
-
 # we are gonna drop the columns with too many unknowns (converted in NA) 
 # and the rows having NA values in job and education (the only two having those)
-
-sum(is.na(df$job) | is.na(df$education)) 
 
 # Convert yes/no to valid factor levels
 df <- df %>%
@@ -24,73 +24,65 @@ df <- df %>%
     default = ifelse(default == "yes", 1, 0),
     housing = ifelse(housing == "yes", 1, 0),
     loan = ifelse(loan == "yes", 1, 0),
-    y = ifelse(y == "yes", "Subscribed", "Not_subscribed"),  # Use valid names for y
+    y = factor(ifelse(y == "yes", "Subscribed", "Not_subscribed")),
     contacted_before = ifelse(pdays > -1, 1, 0)
   ) %>%
-  select(-pdays, -poutcome, -contact)
+  select(-pdays, -poutcome, -contact, -day)
 
 #eliminate rows with NA values
 df_clean <- df[complete.cases(df), ]
 
-# Group job categories
+# Group job categories (keep as factor)
 df_clean <- df_clean %>%
   mutate(
-    job_group = case_when(
+    job_group = factor(case_when(
       job %in% c("blue-collar", "technician", "services", "housemaid") ~ "Manual_Work",
       job %in% c("admin.", "management", "entrepreneur", "self-employed") ~ "White_Collar",
       job %in% c("retired", "student", "unemployed") ~ "Non_Working"
-    )
+    ))
   ) %>%
   select(-job)
 
-# Group marital status
+# Group marital status (keep as factor)
 df_clean <- df_clean %>%
   mutate(
-    marital_group = case_when(
+    marital_group = factor(case_when(
       marital %in% c("married") ~ "Married",
       marital %in% c("single", "divorced") ~ "Single"
-    )
+    ))
   ) %>%
   select(-marital)
 
-# Group months into quadrimesters
+# Group months into quadrimesters (keep as factor)
 df_clean <- df_clean %>%
   mutate(
-    quadrimester = case_when(
-      month %in% c("jan", "feb", "mar", "apr") ~ "Q1",
-      month %in% c("may", "jun", "jul", "aug") ~ "Q2",
-      month %in% c("sep", "oct", "nov", "dec") ~ "Q3"
-    )
+    Q = factor(case_when(
+      month %in% c("jan", "feb", "mar", "apr") ~ "1",
+      month %in% c("may", "jun", "jul", "aug") ~ "2",
+      month %in% c("sep", "oct", "nov", "dec") ~ "3"
+    ))
   ) %>%
   select(-month)
 
-#reordering for clarity
+# Reordering for clarity
 df_clean <- df_clean %>%
   select(-y, everything(), y)
 
-
-# One-hot encoding for categorical variables (excluding y)
-dummies <- dummyVars("~ . - y", data = df_clean, fullRank = TRUE)
-df_encoded <- predict(dummies, df_clean) %>% as.data.frame()
-
-
-# Add y back as a factor with valid names
-df_encoded$y <- factor(df_clean$y, levels = c("Not_subscribed", "Subscribed"))
-
 # Normalize numerical variables
 numeric_cols <- c("age", "balance", "duration", "campaign", "previous")
-df_encoded[numeric_cols] <- scale(df_encoded[numeric_cols])
+df_clean[numeric_cols] <- scale(df_clean[numeric_cols])
 
 # Split data into training and test sets
 set.seed(42)
-trainIndex <- createDataPartition(df_encoded$y, p = 0.8, list = FALSE)
-train <- df_encoded[trainIndex, ]
-test <- df_encoded[-trainIndex, ]
+trainIndex <- createDataPartition(df_clean$y, p = 0.8, list = FALSE)
+train <- df_clean[trainIndex, ]
+test <- df_clean[-trainIndex, ]
+
 
 # Logistic regression model -----------------------------------------------------
 
 # Set up 10-fold cross-validation
-ctrl <- trainControl(method = "cv", number = 10, classProbs = TRUE, summaryFunction = twoClassSummary)
+ctrl <- trainControl(method = "cv", number = 10, sampling = "smote")
 
 # Train logistic regression model
 logistic_model <- train(y ~ ., data = train, method = "glm", family = binomial(), trControl = ctrl)
@@ -99,6 +91,9 @@ logistic_model <- train(y ~ ., data = train, method = "glm", family = binomial()
 summary(logistic_model)
 
 # Model evaluation -----------------------------------------------------------------------
+
+# Cross-validation performance results
+print(logistic_model$results$Accuracy)
 
 # Predictions on the test set
 test$predicted_prob <- predict(logistic_model, newdata = test, type = "prob")[, "Subscribed"]
@@ -118,35 +113,25 @@ ggplot(conf_matrix_table, aes(x = Actual, y = Predicted, fill = Frequency)) +
   geom_text(aes(label = Frequency), color = "black", size = 5) +
   theme_minimal() +
   labs(
-    title = "Confusion Matrix",
+    title = "Confusion Matrix (logistic)",
     x = "Actual Class",
     y = "Predicted Class"
   ) +
   theme(plot.title = element_text(hjust = 0.5))
-
-# Extract and print key metrics
-cat("Sensitivity:", conf_matrix$byClass["Sensitivity"], "\n")
-cat("Specificity:", conf_matrix$byClass["Specificity"], "\n")
-cat("Accuracy:", conf_matrix$overall["Accuracy"], "\n")
 
 # Calculate and print Matthews Correlation Coefficient (MCC)
 TP <- as.numeric(conf_matrix$table[2, 2])
 TN <- as.numeric(conf_matrix$table[1, 1])
 FP <- as.numeric(conf_matrix$table[2, 1])
 FN <- as.numeric(conf_matrix$table[1, 2])
-
 MCC <- (TP * TN - FP * FN) / sqrt((TP + FP) * (TP + FN) * (TN + FP) * (TN + FN))
 cat("MCC:", MCC, "\n")
 
 # ROC curve and AUC
 roc_curve <- roc(test$y, test$predicted_prob)
 auc_value <- auc(roc_curve)
-ggplot() +
-  geom_line(aes(x = 1 - roc_curve$specificities, y = roc_curve$sensitivities), color = "blue") +
-  geom_abline(linetype = "dashed") +
-  labs(title = paste("ROC Curve - AUC:", round(auc_value, 2)), x = "1 - Specificity", y = "Sensitivity") +
-  theme_minimal()
-
-# Finding the optimal threshold to predict y using the Youden's index
-opt_threshold <- coords(roc_curve, "best", ret = "threshold")
-print(paste("Optimal Threshold based on Youden's index:", opt_threshold))
+plot(roc_curve, col = "blue", main = paste("ROC - AUC curve (logistic):", round(auc_value, 2)))
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
+>>>>>>> Stashed changes

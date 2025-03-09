@@ -40,7 +40,7 @@ test <- df_encoded[-trainIndex, ]
 # Logistic regression model -----------------------------------------------------
 
 # Set up 10-fold cross-validation
-ctrl <- trainControl(method = "cv", number = 10, classProbs = TRUE, summaryFunction = twoClassSummary)
+ctrl <- trainControl(method = "cv", number = 10, sampling = "smote")
 
 # Train logistic regression model
 logistic_model <- train(y ~ ., data = train, method = "glm", family = binomial(), trControl = ctrl)
@@ -49,6 +49,8 @@ logistic_model <- train(y ~ ., data = train, method = "glm", family = binomial()
 summary(logistic_model)
 
 # Model evaluation -----------------------------------------------------------------------
+# Cross-validation performance results
+print(logistic_model$results$Accuracy)
 
 #Predictions on the test set
 test$predicted_prob <- predict(logistic_model, newdata = test, type = "prob")[, "Subscribed"]
