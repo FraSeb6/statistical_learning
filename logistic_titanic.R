@@ -71,12 +71,9 @@ logit_model$results
 # cross-validation evaluation 
 print(logit_model$results$Accuracy)
 
-# Predict on test dataset
-test$Survival_Probability <- predict(logit_model, newdata = test, type = "prob")[,2]
-
 # Convert probabilities to binary outcomes (threshold = 0.5)
-test$predictions <- ifelse(test$Survival_Probability > 0.5, 1, 0)
-test$predictions <- as.factor(test$predictions)
+test$Survived <- factor(test$Survived, levels = c(0, 1), labels = c("Not Survived", "Survived"))
+test$predictions <- factor(predict(logit_model, newdata = test, type = "raw"),levels = c(0, 1), labels = c("Not Survived", "Survived"))
 
 # Evaluate model performance
 # Now compute the confusion matrix
