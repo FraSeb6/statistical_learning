@@ -137,7 +137,7 @@ split_data <- split_data[split_data$var != "<leaf>", ]
 deviance_reduction <- tapply(split_data$dev, split_data$var, sum)
 barplot(sort(deviance_reduction, decreasing = TRUE),
         main = "Variable Importance (Decision Tree - tree pack)",
-        col = "steelblue",
+        col = "lightblue",
         las = 2,         # Rotate axis labels
         ylab = "Total Deviance Reduction")
 
