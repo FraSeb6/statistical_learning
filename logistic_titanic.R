@@ -104,7 +104,8 @@ MCC <- mcc(preds = predictions, actuals = actuals)
 print(paste("Matthews Correlation Coefficient (MCC):", MCC))
 
 # ROC-AUC curve
-roc_curve <- roc(test$Survived, test$Survival_Probability)
+Survival_Probability <- predict(logit_model, newdata = test, type = "prob")[,2]
+roc_curve <- roc(test$Survived, Survival_Probability)
 auc_value <- auc(roc_curve)
 plot(roc_curve, col = "blue", main = paste("ROC - AUC curve (Logistic):", round(auc_value, 2)))
 
