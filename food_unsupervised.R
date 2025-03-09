@@ -140,16 +140,16 @@ for(i in 2:23) {
 mtext("Scaled variables distribution", outer=TRUE, cex=1.5, font=2)
 dev.off()
 
-# Verify correlation between variables to avoid multicollinearity
+# Verify correlation between variables to avoid multi-collinearity
 corr_matrix <- cor(scaled_foodproduction)
 heatmap.2(corr_matrix, 
           main="Correlation map", 
           cex.main=0.8, 
           cexRow=0.6, 
           cexCol=0.6, 
-          lwd=0.5,   # Puoi lasciare il parametro per la larghezza delle linee
+          lwd=0.5,   # line width
           trace="none", 
-          sepwidth=c(0.01, 0.01), # Riduce la larghezza delle linee di separazione
+          sepwidth=c(0.01, 0.01), # Shortens the lines
           colsep=1:ncol(corr_matrix), 
           rowsep=1:nrow(corr_matrix),
           srtCol=45,
@@ -248,7 +248,7 @@ df_tsne <- data.frame(Dim1 = tsne_results$Y[,1], Dim2 = tsne_results$Y[,2])
 
 ggplot(df_tsne, aes(x = Dim1, y = Dim2)) +
   geom_point(alpha = 0.7) +
-  ggtitle("Visualizzazione con t-SNE") +
+  ggtitle("Visualization with t-SNE") +
   theme_minimal()
 
 
@@ -309,8 +309,8 @@ plot_ly(pca_data,
 # Verify that rows 32-33-34-36 are actually outliers
 boxplot_info <- boxplot(scaled_foodproduction, main = "Boxplot: highlight outliers", col = "lightblue")  
 highlight_indices <- c(32, 33, 34, 36)
-highlight_colors <- c("red", "green", "blue", "purple")  # Colori per ogni indice
-names(highlight_colors) <- highlight_indices  # Associa i colori agli indici
+highlight_colors <- c("red", "green", "blue", "purple")  
+names(highlight_colors) <- highlight_indices  # Associate the colors to the indexes
 
 for (i in 1:ncol(scaled_foodproduction)) {
   variable_values <- scaled_foodproduction[, i] 
@@ -336,7 +336,7 @@ df_tsne$Cluster <- as.factor(km_tsne$cluster)
 ggplot(df_tsne, aes(x = Dim1, y = Dim2, color = Cluster)) +
   geom_point(alpha = 0.7) +
   geom_text(aes(label = rownames(df_tsne)), vjust = -1, size = 3) +
-  ggtitle("t-SNE con K-means Clustering") +
+  ggtitle("t-SNE on K-means Clustering") +
   theme_minimal()
   
 "Using the two dimensions given by the t-SNE method, we do not have outliers anymore:
@@ -350,7 +350,7 @@ influence of the outliers 32, 33, 34 and 36 on the model."
 
 set.seed(123)
 k.median.fit <- pam(scaled_foodproduction, 4, metric = "manhattan")  
-scaled_foodproduction$cluster <- factor(k.median.fit$clustering)  # Converti cluster in fattore
+scaled_foodproduction$cluster <- factor(k.median.fit$clustering)  
 cols <- colnames(scaled_foodproduction)[1:3]
 
 plot_ly(data = scaled_foodproduction, 
