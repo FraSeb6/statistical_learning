@@ -68,7 +68,7 @@ rpart.plot(tree_model)
 print(tree_model$variable.importance)
 barplot(
   tree_model$variable.importance,
-  main = "Variable Importance (Decision Tree)",
+  main = "Variable Importance (Decision Tree-rpart)",
   ylab = "Importance Score",
   col = "lightblue",
   las = 1
@@ -91,7 +91,7 @@ ggplot(conf_matrix_table, aes(x = Actual, y = Predicted, fill = Frequency)) +
   geom_text(aes(label = Frequency), color = "black", size = 5) +
   theme_minimal() +
   labs(
-    title = "Confusion Matrix (Decision Tree)",
+    title = "Confusion Matrix (Decision Tree - rpart)",
     x = "Actual Class",
     y = "Predicted Class"
   ) +
@@ -136,8 +136,8 @@ split_data <- split_data[split_data$var != "<leaf>", ]
 
 deviance_reduction <- tapply(split_data$dev, split_data$var, sum)
 barplot(sort(deviance_reduction, decreasing = TRUE),
-        main = "Variable Importance (of the tree model)",
-        col = "steelblue",
+        main = "Variable Importance (Decision Tree - tree pack)",
+        col = "lightblue",
         las = 2,         # Rotate axis labels
         ylab = "Total Deviance Reduction")
 
@@ -157,7 +157,7 @@ ggplot(conf_matrix_table2, aes(x = Actual, y = Predicted, fill = Frequency)) +
   geom_text(aes(label = Frequency), color = "black", size = 5) +
   theme_minimal() +
   labs(
-    title = "Confusion Matrix (Decision Tree using tree pack)",
+    title = "Confusion Matrix (Decision Tree - tree pack)",
     x = "Actual Class",
     y = "Predicted Class"
   ) +
@@ -173,7 +173,7 @@ print(paste("Matthews Correlation Coefficient (MCC):", MCC))
 Survival_Probability2 <- predict(tree_model2, newdata = test, type = "vector")[,2]
 roc_curve2 <- roc(test$Survived, Survival_Probability2)
 auc_value2 <- auc(roc_curve)
-plot(roc_curve2, col = "blue", main = paste("ROC-AUC Curve (Decision Tree- tree pack):", round(auc_value2, 2)))
+plot(roc_curve2, col = "blue", main = paste("ROC-AUC Curve (Decision Tree-tree pack):", round(auc_value2, 2)))
 
 #COMMENT: tree package uses a traditional recursive binary partitioning method (similar to CART but simpler).
 # using deviation (derived from entropy) as splitting criterion
@@ -206,7 +206,7 @@ ggplot(conf_matrix_table3, aes(x = Actual, y = Predicted, fill = Frequency)) +
   geom_text(aes(label = Frequency), color = "black", size = 5) +
   theme_minimal() +
   labs(
-    title = "Confusion Matrix (Decision Tree using tree pack)",
+    title = "Confusion Matrix (Decision Tree - ctree pack)",
     x = "Actual Class",
     y = "Predicted Class"
   ) +
