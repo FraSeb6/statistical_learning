@@ -255,7 +255,6 @@ ggplot(df_tsne, aes(x = Dim1, y = Dim2)) +
 --------------------------------------------------------------------------------
 
 ## K-MEANS
-# Find optimal number of clusters
 wssplot <- function(data, nc=15, seed=123){
   wss <- (nrow(data)-1)*sum(apply(data,2,var))
   for (i in 2:nc){
@@ -263,6 +262,7 @@ wssplot <- function(data, nc=15, seed=123){
     wss[i] <- sum(kmeans(data, centers=i)$withinss)}
   plot(1:nc, wss, type="b", xlab="Number of Clusters",
        ylab="Within groups sum of squares")}
+# Find optimal number of clusters
 
 wssplot(scaled_foodproduction, nc=10)
 
@@ -289,7 +289,7 @@ We can try to apply the k-median method, or re-try the k-means after dropping th
 
 # We can also try to look at the 3D plot: use the first three principal components
 set.seed(123)  
-kmeans_result <- kmeans(pca_data, centers = 5, nstart = 25)  
+kmeans_result <- kmeans(pca_data, centers = 4, nstart = 25)  
 
 pca_data$Cluster_kmeans <- as.factor(kmeans_result$cluster)
 pca_data$RowIndex <- rownames(scaled_foodproduction)  
@@ -298,7 +298,7 @@ plot_ly(pca_data,
         x = ~PC1, 
         y = ~PC2, 
         z = ~PC3, 
-        color = ~Cluster, 
+        color = ~Cluster_kmeans, 
         text = ~paste("Row:", RowIndex),  
         colors = c("red", "blue", "green"),
         type = "scatter3d", 
@@ -338,7 +338,12 @@ ggplot(df_tsne, aes(x = Dim1, y = Dim2, color = Cluster)) +
   geom_text(aes(label = rownames(df_tsne)), vjust = -1, size = 3) +
   ggtitle("t-SNE on K-means Clustering") +
   theme_minimal()
-  
+
+scaled_foodproduction$Cluster_tsne <- km_tsne$cluster  
+cluster_tsne_means <- aggregate(. ~ Cluster_tsne, data = scaled_foodproduction, FUN = mean)
+
+print(cluster_tsne_means)
+
 "Using the two dimensions given by the t-SNE method, we do not have outliers anymore:
 the indexes 32,33,34,36 now belong to full clusters."
 
@@ -387,6 +392,12 @@ rect.hclust(h3, 4)
 average <- cutree(h1, k=4)
 complete<- cutree(h2, k=4)
 ward<- cutree(h3, k=4)
+
+scaled_foodproduction$Cluster_average <- average
+scaled_foodproduction$Cluster_complete <- complete
+scaled_foodproduction$Cluster_ward <- ward
+"Since they are quite similar, we chose one for the interpretation"
+
 
 # Compare the linkage methods in pairs
 table(average,complete)
